@@ -4,62 +4,51 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Reserva tu sesión · Dosha Balance Studio</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-firebase.initializeApp({
-  apiKey:"AIzaSyBlnxD0fQIi_EYUF8iGSbVKTN7Y4E6A2PQ",
-  authDomain:"dosha-balance-bfdb0.firebaseapp.com",
-  projectId:"dosha-balance-bfdb0",
-  storageBucket:"dosha-balance-bfdb0.firebasestorage.app",
-  messagingSenderId:"1089942977481",
-  appId:"1:1089942977481:web:7e9cc7eab9962dd48d0618"
-});
-const db = firebase.firestore();
-</script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#faf7f2;--white:#ffffff;--gold:#c99838;--goldl:#e4b558;
+  --bg:#faf7f2;--white:#fff;--gold:#c99838;--goldl:#e4b558;
   --dark:#2a1f0e;--mid:#6b5a3e;--light:#9a8a6a;--brd:#e8ddd0;
   --fd:'Cormorant Garamond',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif;
 }
 body{background:var(--bg);font-family:var(--fb);color:var(--dark);min-height:100vh}
-.hero{background:var(--dark);padding:48px 24px 40px;text-align:center}
-.logo{font-family:var(--fd);font-size:2rem;font-weight:600;color:var(--gold);letter-spacing:.02em}
-.sub{font-size:.75rem;color:#7a6a52;letter-spacing:.18em;text-transform:uppercase;margin-top:5px}
-.wrap{max-width:580px;margin:0 auto;padding:36px 20px 60px}
-.section-t{font-family:var(--fd);font-size:1.5rem;color:var(--dark);font-weight:500;margin-bottom:6px}
-.section-s{font-size:.8rem;color:var(--light);margin-bottom:22px}
-.masajes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:32px}
-.m-card{background:var(--white);border:2px solid var(--brd);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;text-align:left}
-.m-card:hover{border-color:var(--gold);transform:translateY(-1px);box-shadow:0 4px 16px rgba(201,152,56,.12)}
-.m-card.sel{border-color:var(--gold);background:#fffdf7}
-.m-icon{font-size:1.5rem;margin-bottom:6px}
-.m-name{font-family:var(--fd);font-size:1rem;font-weight:600;color:var(--dark);margin-bottom:2px}
-.m-dur{font-size:.7rem;color:var(--light)}
-.m-price{font-family:var(--fd);font-size:1.1rem;font-weight:600;color:var(--gold);margin-top:6px}
-.form-card{background:var(--white);border:1px solid var(--brd);border-radius:12px;padding:24px;margin-bottom:20px}
-.form-t{font-family:var(--fd);font-size:1.1rem;color:var(--dark);font-weight:500;margin-bottom:16px}
-.fg{margin-bottom:14px}
-.fl{display:block;font-size:.7rem;color:var(--light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;font-weight:500}
-.inp{background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:10px 14px;color:var(--dark);font-family:var(--fb);font-size:.88rem;width:100%;outline:none;transition:border-color .15s}
+.hero{background:var(--dark);padding:48px 24px 36px;text-align:center}
+.logo{font-family:var(--fd);font-size:2rem;font-weight:600;color:var(--gold)}
+.sub{font-size:.72rem;color:#7a6a52;letter-spacing:.18em;text-transform:uppercase;margin-top:5px}
+.wrap{max-width:560px;margin:0 auto;padding:36px 18px 60px}
+.sec-t{font-family:var(--fd);font-size:1.45rem;color:var(--dark);font-weight:500;margin-bottom:5px}
+.sec-s{font-size:.78rem;color:var(--light);margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:30px}
+.mc{background:var(--white);border:2px solid var(--brd);border-radius:10px;padding:14px;cursor:pointer;transition:all .18s}
+.mc:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 4px 14px rgba(201,152,56,.12)}
+.mc.on{border-color:var(--gold);background:#fffdf7}
+.mi{font-size:1.5rem;margin-bottom:5px}
+.mn{font-family:var(--fd);font-size:1rem;font-weight:600;color:var(--dark)}
+.md{font-size:.68rem;color:var(--light);margin-top:1px}
+.mp{font-family:var(--fd);font-size:1.05rem;font-weight:600;color:var(--gold);margin-top:6px}
+.card{background:var(--white);border:1px solid var(--brd);border-radius:12px;padding:22px;margin-bottom:16px}
+.card-t{font-family:var(--fd);font-size:1.05rem;color:var(--dark);font-weight:500;margin-bottom:14px}
+.fg{margin-bottom:13px}
+.fl{display:block;font-size:.68rem;color:var(--light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;font-weight:500}
+.inp{background:var(--bg);border:1px solid var(--brd);border-radius:7px;padding:10px 13px;color:var(--dark);font-family:var(--fb);font-size:.86rem;width:100%;outline:none;transition:border-color .15s;-webkit-appearance:none}
 .inp:focus{border-color:var(--gold)}
 .inp::placeholder{color:#c0b09a}
-.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-textarea.inp{resize:vertical;min-height:80px}
-.btn{width:100%;padding:15px;background:var(--gold);color:white;border:none;border-radius:9px;font-family:var(--fd);font-size:1.15rem;font-weight:500;cursor:pointer;transition:background .2s;letter-spacing:.02em}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+textarea.inp{resize:vertical;min-height:76px}
+.btn{width:100%;padding:15px;background:var(--gold);color:white;border:none;border-radius:9px;font-family:var(--fd);font-size:1.15rem;font-weight:500;cursor:pointer;transition:background .18s;letter-spacing:.02em;margin-top:4px}
 .btn:hover{background:var(--goldl)}
 .btn:disabled{background:#c0b09a;cursor:not-allowed}
-.ok{display:none;text-align:center;padding:48px 24px;background:var(--white);border:1px solid var(--brd);border-radius:12px}
-.ok-icon{font-size:3rem;margin-bottom:16px}
+.note{text-align:center;font-size:.71rem;color:var(--light);margin-top:10px;line-height:1.5}
+.err{background:#fff5f5;border:1px solid #f0c0c0;color:#c05050;border-radius:7px;padding:10px 13px;font-size:.8rem;margin-bottom:12px;display:none}
+.ok{display:none;text-align:center;padding:50px 22px;background:var(--white);border:1px solid var(--brd);border-radius:12px}
+.ok-i{font-size:3rem;margin-bottom:14px}
 .ok-t{font-family:var(--fd);font-size:1.6rem;color:var(--dark);font-weight:500;margin-bottom:8px}
-.ok-s{font-size:.85rem;color:var(--light);line-height:1.6}
-.err{background:#fff5f5;border:1px solid #f0c0c0;color:#c05050;border-radius:7px;padding:10px 14px;font-size:.82rem;margin-bottom:14px;display:none}
-footer{text-align:center;padding:20px;font-size:.72rem;color:var(--light)}
-input[type=date]{color-scheme:light}
-@media(max-width:420px){.masajes{grid-template-columns:1fr}.fr{grid-template-columns:1fr}}
+.ok-s{font-size:.83rem;color:var(--light);line-height:1.6}
+footer{text-align:center;padding:18px;font-size:.7rem;color:var(--light)}
+a{color:var(--gold);text-decoration:none}
+input[type=date],input[type=time]{color-scheme:light}
+@media(max-width:400px){.grid,.fr2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -70,164 +59,158 @@ input[type=date]{color-scheme:light}
 </div>
 
 <div class="wrap">
-  <div class="section-t">Elige tu masaje</div>
-  <div class="section-s">Selecciona el servicio que deseas reservar</div>
 
-  <div class="masajes" id="masajes-grid">
-    <!-- Se carga desde Firebase o fallback -->
+  <div class="sec-t">Elige tu masaje</div>
+  <div class="sec-s">Toca el servicio que deseas reservar</div>
+
+  <div class="grid">
+    <div class="mc" onclick="sel(1,'Nuad Thai',150,90)">
+      <div class="mi">🌿</div>
+      <div class="mn">Nuad Thai</div>
+      <div class="md">90 min</div>
+      <div class="mp">150€</div>
+    </div>
+    <div class="mc" onclick="sel(2,'Balinés',125,60)">
+      <div class="mi">🌺</div>
+      <div class="mn">Balinés</div>
+      <div class="md">60 min</div>
+      <div class="mp">125€</div>
+    </div>
+    <div class="mc" onclick="sel(3,'Lomi Lomi',135,75)">
+      <div class="mi">🌊</div>
+      <div class="mn">Lomi Lomi</div>
+      <div class="md">75 min</div>
+      <div class="mp">135€</div>
+    </div>
+    <div class="mc" onclick="sel(4,'Ayurveda',135,60)">
+      <div class="mi">☀️</div>
+      <div class="mn">Ayurveda</div>
+      <div class="md">60 min</div>
+      <div class="mp">135€</div>
+    </div>
+    <div class="mc" onclick="sel(5,'Shiatsu Zen',150,60)">
+      <div class="mi">⚡</div>
+      <div class="mn">Shiatsu Zen</div>
+      <div class="md">60 min</div>
+      <div class="mp">150€</div>
+    </div>
+    <div class="mc" onclick="sel(6,'Tuina',135,45)">
+      <div class="mi">🔮</div>
+      <div class="mn">Tuina</div>
+      <div class="md">45 min</div>
+      <div class="mp">135€</div>
+    </div>
   </div>
 
-  <div id="form-area" style="display:none">
-    <div class="form-card">
-      <div class="form-t">Tus datos</div>
+  <div id="form" style="display:none">
+    <div class="card">
+      <div class="card-t">Tus datos</div>
       <div class="fg">
         <label class="fl">Nombre completo *</label>
-        <input class="inp" id="inp-nombre" placeholder="Tu nombre y apellidos" type="text">
+        <input class="inp" id="nom" placeholder="Tu nombre y apellidos" type="text">
       </div>
-      <div class="fr">
+      <div class="fr2">
         <div class="fg">
           <label class="fl">Teléfono *</label>
-          <input class="inp" id="inp-tel" placeholder="+34 6XX XXX XXX" type="tel">
+          <input class="inp" id="tel" placeholder="+34 6XX XXX XXX" type="tel">
         </div>
         <div class="fg">
           <label class="fl">Email</label>
-          <input class="inp" id="inp-email" placeholder="tu@email.com" type="email">
+          <input class="inp" id="email" placeholder="tu@email.com" type="email">
         </div>
       </div>
     </div>
 
-    <div class="form-card">
-      <div class="form-t">Disponibilidad</div>
-      <div class="fr">
+    <div class="card">
+      <div class="card-t">Disponibilidad</div>
+      <div class="fr2">
         <div class="fg">
           <label class="fl">Fecha preferida</label>
-          <input class="inp" id="inp-fecha" type="date">
+          <input class="inp" id="fecha" type="date">
         </div>
         <div class="fg">
           <label class="fl">Hora aproximada</label>
-          <input class="inp" id="inp-hora" type="time">
+          <input class="inp" id="hora" type="time">
         </div>
       </div>
       <div class="fg">
-        <label class="fl">¿A domicilio? <span style="font-weight:400;text-transform:none;font-size:.78rem">(+20€)</span></label>
-        <select class="inp" id="inp-domicilio">
+        <label class="fl">¿Servicio a domicilio? (+20€)</label>
+        <select class="inp" id="dom">
           <option value="no">No, acudo al estudio</option>
           <option value="si">Sí, servicio a domicilio (+20€)</option>
         </select>
       </div>
-      <div class="fg">
-        <label class="fl">Notas adicionales</label>
-        <textarea class="inp" id="inp-notas" placeholder="Alergias, preferencias, cualquier cosa que debamos saber..."></textarea>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Notas</label>
+        <textarea class="inp" id="notas" placeholder="Alergias, preferencias, cualquier cosa que debamos saber..."></textarea>
       </div>
     </div>
 
-    <div class="err" id="err-msg"></div>
-    <button class="btn" id="btn-enviar" onclick="enviar()">Solicitar cita →</button>
-    <p style="text-align:center;font-size:.72rem;color:var(--light);margin-top:12px">Te confirmaremos la cita por teléfono o WhatsApp</p>
+    <div class="err" id="err"></div>
+    <button class="btn" id="btn" onclick="enviar()">Solicitar cita por WhatsApp →</button>
+    <p class="note">Te confirmaremos la disponibilidad por WhatsApp</p>
   </div>
 
-  <div class="ok" id="ok-panel">
-    <div class="ok-icon">✨</div>
+  <div class="ok" id="ok">
+    <div class="ok-i">✨</div>
     <div class="ok-t">¡Solicitud enviada!</div>
-    <div class="ok-s">Hemos recibido tu petición de cita.<br>Nos pondremos en contacto contigo pronto para confirmar.</div>
+    <div class="ok-s">Se ha abierto WhatsApp con tu solicitud.<br>Pronto recibirás confirmación.</div>
   </div>
+
 </div>
 
-<footer>Dosha Balance Studio · Valencia · <a href="tel:+34600000000" style="color:var(--gold)">Llámanos</a></footer>
+<footer>Dosha Balance Studio · Valencia · <a href="https://rubenlobato13-cell.github.io/dosha-balance-studio/">Volver</a></footer>
 
 <script>
-const MASAJES_FALLBACK = [
-  {id:1,nombre:"Nuad Thai",  min:90,precio:150,icon:"🌿"},
-  {id:2,nombre:"Balinés",    min:60,precio:125,icon:"🌺"},
-  {id:3,nombre:"Lomi Lomi",  min:75,precio:135,icon:"🌊"},
-  {id:4,nombre:"Ayurveda",   min:60,precio:135,icon:"☀️"},
-  {id:5,nombre:"Shiatsu Zen",min:60,precio:150,icon:"⚡"},
-  {id:6,nombre:"Tuina",      min:45,precio:135,icon:"🔮"},
-];
+var selId=null, selNom='', selPrecio=0;
 
-let masajes = [];
-let selMid = null;
-
-async function cargarMasajes() {
-  try {
-    const doc = await db.collection("dosha").doc("masajes").get();
-    masajes = doc.exists ? doc.data().data : MASAJES_FALLBACK;
-  } catch(e) {
-    masajes = MASAJES_FALLBACK;
-  }
-  renderMasajes();
+function sel(id,nom,precio,min){
+  selId=id; selNom=nom; selPrecio=precio;
+  document.querySelectorAll('.mc').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.mc')[id-1].classList.add('on');
+  var f=document.getElementById('form');
+  f.style.display='block';
+  setTimeout(function(){f.scrollIntoView({behavior:'smooth',block:'start'})},100);
 }
 
-function renderMasajes() {
-  const grid = document.getElementById("masajes-grid");
-  grid.innerHTML = masajes.map(m => `
-    <div class="m-card" id="mc-${m.id}" onclick="selMasaje(${m.id})">
-      <div class="m-icon">${m.icon}</div>
-      <div class="m-name">${m.nombre}</div>
-      <div class="m-dur">${m.min} minutos</div>
-      <div class="m-price">${m.precio}€</div>
-    </div>
-  `).join("");
-}
+function enviar(){
+  var nom=document.getElementById('nom').value.trim();
+  var tel=document.getElementById('tel').value.trim();
+  var fecha=document.getElementById('fecha').value;
+  var hora=document.getElementById('hora').value;
+  var dom=document.getElementById('dom').value;
+  var notas=document.getElementById('notas').value.trim();
+  var err=document.getElementById('err');
+  err.style.display='none';
 
-function selMasaje(id) {
-  selMid = id;
-  document.querySelectorAll(".m-card").forEach(c => c.classList.remove("sel"));
-  document.getElementById("mc-" + id)?.classList.add("sel");
-  document.getElementById("form-area").style.display = "block";
-  document.getElementById("form-area").scrollIntoView({behavior:"smooth", block:"start"});
-}
-
-async function enviar() {
-  const nombre = document.getElementById("inp-nombre").value.trim();
-  const tel    = document.getElementById("inp-tel").value.trim();
-  const email  = document.getElementById("inp-email").value.trim();
-  const fecha  = document.getElementById("inp-fecha").value;
-  const hora   = document.getElementById("inp-hora").value;
-  const dom    = document.getElementById("inp-domicilio").value;
-  const notas  = document.getElementById("inp-notas").value.trim();
-  const errEl  = document.getElementById("err-msg");
-
-  errEl.style.display = "none";
-
-  if (!nombre || !tel || !selMid) {
-    errEl.textContent = "Por favor rellena tu nombre, teléfono y elige un masaje.";
-    errEl.style.display = "block";
+  if(!nom||!tel||!selId){
+    err.textContent='Por favor rellena tu nombre, teléfono y elige un masaje.';
+    err.style.display='block';
     return;
   }
 
-  const m = masajes.find(x => x.id === selMid);
-  const btn = document.getElementById("btn-enviar");
-  btn.disabled = true;
-  btn.textContent = "Enviando...";
+  var precio=selPrecio+(dom==='si'?20:0);
+  var msg='Hola, me gustaría reservar una sesión de Dosha Balance Studio:\n\n';
+  msg+='💆 Masaje: '+selNom+'\n';
+  msg+='💰 Precio: '+precio+'€'+(dom==='si'?' (incluye domicilio)':'')+'\n';
+  msg+='👤 Nombre: '+nom+'\n';
+  msg+='📞 Teléfono: '+tel+'\n';
+  if(fecha) msg+='📅 Fecha preferida: '+fecha+'\n';
+  if(hora)  msg+='🕐 Hora preferida: '+hora+'\n';
+  if(dom==='si') msg+='🚗 Servicio a domicilio: Sí\n';
+  if(notas) msg+='📝 Notas: '+notas+'\n';
 
-  try {
-    await db.collection("dosha").doc("solicitudes").collection("lista").add({
-      nombre, tel, email, notas,
-      masaje: m?.nombre || "",
-      precio: m?.precio || 0,
-      domicilio: dom === "si",
-      fechaPref: fecha,
-      horaPref: hora,
-      estado: "nueva",
-      creado: new Date().toISOString()
-    });
-    document.getElementById("form-area").style.display = "none";
-    document.getElementById("ok-panel").style.display = "block";
-    document.getElementById("ok-panel").scrollIntoView({behavior:"smooth"});
-  } catch(e) {
-    errEl.textContent = "Error al enviar. Inténtalo de nuevo o llámanos directamente.";
-    errEl.style.display = "block";
-    btn.disabled = false;
-    btn.textContent = "Solicitar cita →";
-  }
+  // CAMBIA ESTE NÚMERO POR EL TUYO
+  var numero='34600000000';
+  var url='https://wa.me/'+numero+'?text='+encodeURIComponent(msg);
+  window.open(url,'_blank');
+  document.getElementById('form').style.display='none';
+  document.getElementById('ok').style.display='block';
+  document.getElementById('ok').scrollIntoView({behavior:'smooth'});
 }
 
-cargarMasajes();
-
-// Set min date to today
-const today = new Date().toISOString().split("T")[0];
-document.getElementById("inp-fecha").min = today;
+var today=new Date().toISOString().split('T')[0];
+document.getElementById('fecha').min=today;
 </script>
 </body>
 </html>
