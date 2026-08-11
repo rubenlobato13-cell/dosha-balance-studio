@@ -55,7 +55,7 @@ input[type=date],input[type=time]{color-scheme:light}
 
 <div class="hero">
   <div class="logo">Dosha Balance Studio</div>
-  <div class="sub">Valencia · Masaje Profesional</div>
+  <div class="sub">Valencia · Alicante · Masaje Profesional</div>
 </div>
 
 <div class="wrap">
@@ -134,6 +134,14 @@ input[type=date],input[type=time]{color-scheme:light}
         </div>
       </div>
       <div class="fg">
+        <label class="fl">Sede *</label>
+        <select class="inp" id="sede">
+          <option value="">Selecciona la sede...</option>
+          <option value="Valencia">Valencia</option>
+          <option value="Alicante">Alicante</option>
+        </select>
+      </div>
+      <div class="fg">
         <label class="fl">¿Servicio a domicilio? (+20€)</label>
         <select class="inp" id="dom">
           <option value="no">No, acudo al estudio</option>
@@ -176,6 +184,7 @@ function sel(id,nom,precio,min){
 function enviar(){
   var nom=document.getElementById('nom').value.trim();
   var tel=document.getElementById('tel').value.trim();
+  var sede=document.getElementById('sede').value;
   var fecha=document.getElementById('fecha').value;
   var hora=document.getElementById('hora').value;
   var dom=document.getElementById('dom').value;
@@ -183,8 +192,8 @@ function enviar(){
   var err=document.getElementById('err');
   err.style.display='none';
 
-  if(!nom||!tel||!selId){
-    err.textContent='Por favor rellena tu nombre, teléfono y elige un masaje.';
+  if(!nom||!tel||!selId||!sede){
+    err.textContent='Por favor rellena tu nombre, teléfono, sede y elige un masaje.';
     err.style.display='block';
     return;
   }
@@ -192,6 +201,7 @@ function enviar(){
   var precio=selPrecio+(dom==='si'?20:0);
   var msg='Hola, me gustaría reservar una sesión de Dosha Balance Studio:\n\n';
   msg+='💆 Masaje: '+selNom+'\n';
+  msg+='📍 Sede: '+sede+'\n';
   msg+='💰 Precio: '+precio+'€'+(dom==='si'?' (incluye domicilio)':'')+'\n';
   msg+='👤 Nombre: '+nom+'\n';
   msg+='📞 Teléfono: '+tel+'\n';
@@ -201,7 +211,7 @@ function enviar(){
   if(notas) msg+='📝 Notas: '+notas+'\n';
 
   // CAMBIA ESTE NÚMERO POR EL TUYO
-  var numero='34672654805';
+  var numero='34600000000';
   var url='https://wa.me/'+numero+'?text='+encodeURIComponent(msg);
   window.open(url,'_blank');
   document.getElementById('form').style.display='none';
