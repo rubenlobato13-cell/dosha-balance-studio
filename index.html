@@ -237,7 +237,7 @@ function DoshaApp() {
   const [clModal, setClModal]= useState(false);
   const [copied,  setCopied] = useState(false);
   const [mForm,   setMForm]  = useState({ icon:"✨", nombre:"", min:"", precio:"", desc:"" });
-  const [ncForm,  setNcForm] = useState({ cid:"", mid:"", fecha:"", hora:"", domicilio:false, extra:"" });
+  const [ncForm,  setNcForm] = useState({ cid:"", mid:"", fecha:"", hora:"", domicilio:false, extra:"", descuento:"" });
   const [clForm,  setClForm] = useState({ nombre:"", tel:"", email:"", fav:"", notas:"" });
 
   const LINK = "https://rubenlobato13-cell.github.io/dosha-balance-studio/reservas.html";
@@ -349,11 +349,12 @@ function DoshaApp() {
     const fecha = new Date(y,mo-1,d,h,mi);
     const m = gM(parseInt(ncForm.mid));
     const extraPrecio = parseFloat(ncForm.extra) || 0;
-    const monto = (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio;
+    const descuento   = parseFloat(ncForm.descuento) || 0;
+    const monto = Math.max(0, (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio - descuento);
     const nid = Math.max(...citas.map(c=>c.id))+1;
-    const n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio}];
+    const n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento}];
     setCitas(n); save("citas", n);
-    setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:""});
+    setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:"",descuento:""});
     setNcModal(false);
   };
 
@@ -1224,7 +1225,7 @@ function DoshaApp() {
               </div>
 
               {/* Tiempo extra */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid var(--b1)"}}>
                 <div>
                   <div style={{fontSize:".84rem",color:"var(--cream)",fontWeight:500}}>⏱ Tiempo extra</div>
                   <div style={{fontSize:".72rem",color:"var(--mut)",marginTop:"2px"}}>Importe adicional por tiempo extra</div>
@@ -1243,6 +1244,27 @@ function DoshaApp() {
                   <span style={{fontSize:".8rem",color:"var(--mut)"}}>€</span>
                 </div>
               </div>
+
+              {/* Descuento */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0"}}>
+                <div>
+                  <div style={{fontSize:".84rem",color:"var(--cream)",fontWeight:500}}>🏷️ Descuento</div>
+                  <div style={{fontSize:".72rem",color:"var(--mut)",marginTop:"2px"}}>Importe a descontar del total</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                  <span style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--green)"}}>-</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    className="inp"
+                    value={ncForm.descuento}
+                    onChange={e=>setNcForm(p=>({...p,descuento:e.target.value}))}
+                    style={{width:"90px",textAlign:"right",fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--green)"}}
+                  />
+                  <span style={{fontSize:".8rem",color:"var(--mut)"}}>€</span>
+                </div>
+              </div>
             </div>
 
             {/* Resumen precio */}
@@ -1252,7 +1274,8 @@ function DoshaApp() {
                 {(()=>{
                   const m=gM(parseInt(ncForm.mid));
                   const extraPrecio=parseFloat(ncForm.extra)||0;
-                  const total=(m?.precio||0)+(ncForm.domicilio?20:0)+extraPrecio;
+                  const descuento=parseFloat(ncForm.descuento)||0;
+                  const total=Math.max(0,(m?.precio||0)+(ncForm.domicilio?20:0)+extraPrecio-descuento);
                   return (
                     <div>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}>
@@ -1260,6 +1283,7 @@ function DoshaApp() {
                       </div>
                       {ncForm.domicilio&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}><span>Desplazamiento</span><span>+20€</span></div>}
                       {extraPrecio>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}><span>Tiempo extra</span><span>+{fmt(extraPrecio)}</span></div>}
+                      {descuento>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--green)",marginBottom:"4px"}}><span>🏷️ Descuento</span><span>-{fmt(descuento)}</span></div>}
                       <div style={{borderTop:"1px solid rgba(201,152,56,.25)",paddingTop:"8px",marginTop:"4px",display:"flex",justifyContent:"flex-end"}}>
                         <span style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:"var(--gold)",fontWeight:600}}>{fmt(total)}</span>
                       </div>
