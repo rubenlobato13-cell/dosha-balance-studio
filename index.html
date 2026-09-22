@@ -80,6 +80,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb)}
 .badge.pendiente{background:rgba(201,128,40,.13);color:var(--amb);border:1px solid rgba(201,128,40,.28)}
 .badge.cobrada{background:rgba(106,158,120,.13);color:var(--green);border:1px solid rgba(106,158,120,.28)}
 .badge.cancelada{background:rgba(184,98,98,.13);color:var(--red);border:1px solid rgba(184,98,98,.28)}
+.badge.bono{background:rgba(106,140,200,.13);color:#7aa0d8;border:1px solid rgba(106,140,200,.28)}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:7px;font-size:.8rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;font-family:var(--fb)}
 .btn-g{background:var(--gold);color:var(--bg)}.btn-g:hover{background:var(--goldl)}
 .btn-o{background:transparent;color:var(--mut2);border:1px solid var(--b2)}.btn-o:hover{color:var(--cream);background:var(--card2)}
@@ -204,6 +205,8 @@ function DoshaApp() {
   const [senalForm, setSenalForm] = useState({cid:"", importe:"", metodo:"efectivo", notas:""});
   const [bonoModal, setBonoModal] = useState(false);
   const [bonoForm, setBonoForm] = useState({ cid:"", mid:"", sesiones:"3" });
+  const [bonoSesModal, setBonoSesModal] = useState(null); // {bono}
+  const [bonoSesForm, setBonoSesForm] = useState({fecha:"", hora:""});
 
   // ── Carga inicial desde Firestore ──
   const { useEffect } = React;
@@ -296,9 +299,10 @@ function DoshaApp() {
     [citas]
   );
 
-  const cobHoy = citasHoy.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+  const cobHoy = citasHoy.filter(c=>c.estado==="cobrada"||c.estado==="bono").reduce((s,c)=>s+c.monto,0);
   const penHoy = citasHoy.filter(c=>c.estado==="pendiente").reduce((s,c)=>s+c.monto,0);
-  const cobTot = citas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+  const bonosCobTot = bonosVendidos.filter(b=>b.cobrado).reduce((s,b)=>s+b.precio,0);
+  const cobTot = citas.filter(c=>c.estado==="cobrada"||c.estado==="bono").reduce((s,c)=>s+c.monto,0) + bonosCobTot;
   const penTot = citas.filter(c=>c.estado==="pendiente").reduce((s,c)=>s+c.monto,0);
 
   const daysSet = useMemo(() => {
@@ -372,9 +376,28 @@ function DoshaApp() {
     setBonoModal(false);
   };
 
-  const usarSesionBono = (bid) => {
-    const n = bonosVendidos.map(b=>b.id===bid&&b.usadas<b.sesiones?{...b,usadas:b.usadas+1}:b);
-    setBonosVendidos(n); save("bonos", n);
+  const usarSesionBono = () => {
+    if (!bonoSesModal || !bonoSesForm.fecha || !bonoSesForm.hora) return;
+    const b = bonoSesModal;
+    const [y,mo,d] = bonoSesForm.fecha.split("-").map(Number);
+    const [h,mi]   = bonoSesForm.hora.split(":").map(Number);
+    const fecha = new Date(y,mo-1,d,h,mi);
+    // Descontar sesión del bono
+    const ids = citas.map(c=>c.id).filter(x=>Number.isFinite(x));
+    const nid = ids.length ? Math.max(...ids)+1 : 1;
+    const nuevaCita = {
+      id:nid, cid:b.cid, mid:b.mid, fecha,
+      estado:"bono", monto:0, domicilio:false,
+      extraPrecio:0, descuento:0, adicionales:[],
+      bonoId:b.id
+    };
+    const newCitas = [...citas, nuevaCita];
+    setCitas(newCitas); save("citas", newCitas);
+    // Marcar sesión como usada en el bono
+    const newBonos = bonosVendidos.map(bv => bv.id===b.id ? {...bv, usadas:bv.usadas+1} : bv);
+    setBonosVendidos(newBonos); save("bonos", newBonos);
+    setBonoSesModal(null);
+    setBonoSesForm({fecha:"", hora:""});
   };
 
   const cobrarBono = (bid) => {
@@ -1063,6 +1086,24 @@ function DoshaApp() {
                     </div>
                   );
                 })}
+                {bonosVendidos.filter(b=>b.cobrado).length>0&&(
+                  <>
+                    <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em",padding:"10px 0 5px",marginTop:"5px",borderTop:"1px solid var(--b1)"}}>🎟 Bonos cobrados</div>
+                    {bonosVendidos.filter(b=>b.cobrado).sort((a,b)=>b.fecha-a.fecha).map(b=>{
+                      const cl=gC(b.cid), m=gM(b.mid);
+                      return (
+                        <div key={b.id} style={{display:"flex",alignItems:"center",gap:"9px",padding:"8px 0",borderBottom:"1px solid var(--b1)"}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:".83rem",color:"var(--cream)",fontWeight:500}}>{cl?.nombre}</div>
+                            <div style={{fontSize:".69rem",color:"var(--mut)"}}>{b.fecha.toLocaleDateString("es-ES",{day:"2-digit",month:"short"})} · {m?.nombre} · Bono {b.sesiones} ses.</div>
+                          </div>
+                          <span style={{fontFamily:"var(--fd)",fontSize:".95rem",color:"var(--green)"}}>{fmt(b.precio)}</span>
+                          <Icon n="check" s={13}/>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1203,7 +1244,7 @@ function DoshaApp() {
                           </div>
                           <div style={{display:"flex",flexDirection:"column",gap:"5px",flexShrink:0}}>
                             {restantes>0 && (
-                              <button className="btn btn-o btn-sm" onClick={()=>usarSesionBono(b.id)} style={{whiteSpace:"nowrap"}}>
+                              <button className="btn btn-o btn-sm" onClick={()=>{setBonoSesModal(b);setBonoSesForm({fecha:"",hora:""})}} style={{whiteSpace:"nowrap"}}>
                                 <Icon n="minus" s={11}/>Usar sesión
                               </button>
                             )}
@@ -1408,6 +1449,40 @@ function DoshaApp() {
           </div>
         );
       })()}
+
+      {/* ─── MODAL: Asignar sesión de bono ─── */}
+      {bonoSesModal&&(
+        <div className="ov" onClick={()=>setBonoSesModal(null)}>
+          <div className="modal" style={{maxWidth:"400px"}} onClick={e=>e.stopPropagation()}>
+            <div className="modt">🎟 Asignar sesión de bono</div>
+            <div style={{background:"var(--surf)",borderRadius:"8px",padding:"11px 14px",marginBottom:"16px"}}>
+              <div style={{fontWeight:600,fontSize:".88rem",color:"var(--cream)",marginBottom:"3px"}}>
+                {gC(bonoSesModal.cid)?.nombre}
+              </div>
+              <div style={{fontSize:".76rem",color:"var(--mut2)"}}>
+                {gM(bonoSesModal.mid)?.icon} {gM(bonoSesModal.mid)?.nombre} · Bono {bonoSesModal.sesiones} sesiones · {bonoSesModal.usadas}/{bonoSesModal.sesiones} usadas
+              </div>
+            </div>
+            <div style={{fontSize:".74rem",color:"var(--mut)",marginBottom:"12px"}}>
+              Selecciona la fecha y hora de esta sesión — quedará registrada en el calendario como cita de bono (ya pagada).
+            </div>
+            <div className="fr">
+              <div className="fg"><label className="fl">Fecha *</label>
+                <input type="date" className="inp" value={bonoSesForm.fecha} onChange={e=>setBonoSesForm(p=>({...p,fecha:e.target.value}))}/>
+              </div>
+              <div className="fg"><label className="fl">Hora *</label>
+                <input type="time" className="inp" value={bonoSesForm.hora} onChange={e=>setBonoSesForm(p=>({...p,hora:e.target.value}))}/>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"4px"}}>
+              <button className="btn btn-o" onClick={()=>setBonoSesModal(null)}>Cancelar</button>
+              <button className="btn btn-g" onClick={usarSesionBono} disabled={!bonoSesForm.fecha||!bonoSesForm.hora}>
+                <Icon n="check" s={13}/>Registrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL: Confirmar reserva ─── */}
       {confModal&&(
