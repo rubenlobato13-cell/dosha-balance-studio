@@ -249,7 +249,9 @@ function DoshaApp() {
   const abrirCobro = (id) => setPagModal({id, tipo:"efectivo"});
   const cobrar = () => {
     if (!pagModal) return;
-    const n = citas.map(c => c.id===pagModal.id ? {...c, estado:"cobrada", tipoPago:pagModal.tipo} : c);
+    const n = pagModal.editar
+      ? citas.map(c => c.id===pagModal.id ? {...c, tipoPago:pagModal.tipo} : c)
+      : citas.map(c => c.id===pagModal.id ? {...c, estado:"cobrada", tipoPago:pagModal.tipo} : c);
     setCitas(n); save("citas", n);
     setPagModal(null);
   };
@@ -721,6 +723,7 @@ function DoshaApp() {
                           <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>
                           <button className="btn btn-o btn-sm" onClick={()=>cancelar(c.id)}><Icon n="x" s={11}/></button>
                         </>}
+                        {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>setPagModal({id:c.id,tipo:c.tipoPago||"efectivo",editar:true})}><Icon n="pencil" s={11}/>Pago</button>}
                       </div>
                     </div>
                   );
@@ -1057,7 +1060,7 @@ function DoshaApp() {
       {pagModal&&(
         <div className="ov" onClick={()=>setPagModal(null)}>
           <div className="modal" style={{maxWidth:"360px"}} onClick={e=>e.stopPropagation()}>
-            <div className="modt">¿Cómo se ha pagado?</div>
+            <div className="modt">{pagModal?.editar?"Editar método de pago":"¿Cómo se ha pagado?"}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"9px",marginBottom:"20px"}}>
               {[
                 {id:"efectivo", label:"💵 Efectivo"},
@@ -1073,7 +1076,7 @@ function DoshaApp() {
             </div>
             <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
               <button className="btn btn-o" onClick={()=>setPagModal(null)}>Cancelar</button>
-              <button className="btn btn-g" onClick={cobrar}><Icon n="check" s={13}/>Confirmar cobro</button>
+              <button className="btn btn-g" onClick={cobrar}><Icon n="check" s={13}/>{pagModal?.editar?"Guardar":"Confirmar cobro"}</button>
             </div>
           </div>
         </div>
