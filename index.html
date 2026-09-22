@@ -228,6 +228,7 @@ function DoshaApp() {
 
   const [filtro, setFiltro] = useState("todas");
   const [busq,   setBusq]   = useState("");
+  const [busqCl, setBusqCl] = useState("");
 
   const [clientes, setClientes] = useState(CL0);
 
@@ -766,8 +767,17 @@ function DoshaApp() {
               <div><div className="pt">Clientes</div><div className="ps">{clientes.length} clientes registrados</div></div>
               <button className="btn btn-g" style={{marginTop:"8px"}} onClick={()=>setClModal(true)}><Icon n="plus" s={13}/>Nuevo cliente</button>
             </div>
-            <div className="clg">
-              {clientes.map(cl=>{
+            <div style={{position:"relative",marginBottom:"16px"}}>
+              <Icon n="search" s={14} style={{position:"absolute",left:"11px",top:"50%",transform:"translateY(-50%)",color:"var(--mut)",pointerEvents:"none"}}/>
+              <input className="inp" placeholder="Buscar por nombre, email o teléfono..." value={busqCl} onChange={e=>setBusqCl(e.target.value)} style={{paddingLeft:"32px"}}/>
+            </div>
+            {(()=>{
+              const q=busqCl.toLowerCase();
+              const lista=busqCl?clientes.filter(c=>c.nombre.toLowerCase().includes(q)||c.email?.toLowerCase().includes(q)||c.tel?.includes(q)):clientes;
+              return lista.length===0
+                ? <div style={{textAlign:"center",padding:"36px",color:"var(--mut)",background:"var(--card)",borderRadius:"12px",border:"1px solid var(--b1)"}}>No se encontró ningún cliente con «{busqCl}»</div>
+                : <div className="clg">
+                {lista.map(cl=>{
                 const tot=clTotal(cl.id), nc=clCitas(cl.id).length, m=gM(cl.fav);
                 return (
                   <div key={cl.id} className="clc" onClick={()=>setSelCl(cl)}>
@@ -794,7 +804,8 @@ function DoshaApp() {
                   </div>
                 );
               })}
-            </div>
+            </div>;
+            })()}
           </div>
         )}
 
