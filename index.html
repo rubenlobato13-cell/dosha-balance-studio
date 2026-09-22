@@ -37,7 +37,10 @@ window._save = {
   masajes:     (d) => window._db.collection(_col).doc("masajes").set({data: d}),
   bonos:       (d) => window._db.collection(_col).doc("bonos").set({data: window._ser.bonos(d)}),
   bonoPrices:  (d) => window._db.collection(_col).doc("bonoPrices").set({data: d}),
+  senales:     (d) => window._db.collection(_col).doc("senales").set({data: window._ser.senales(d)}),
 };
+window._ser.senales    = (arr) => arr.map(s=>({...s, fecha:s.fecha.getTime(), fechaDev:s.fechaDev?s.fechaDev.getTime():null}));
+window._ser.senales_in = (arr) => arr.map(s=>({...s, fecha:new Date(s.fecha), fechaDev:s.fechaDev?new Date(s.fechaDev):null}));
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -170,6 +173,7 @@ const NAV = [
   { id:"pagos",      label:"Pagos",      icon:"wallet" },
   { id:"masajes",    label:"Masajes",    icon:"sparkles" },
   { id:"bonos",      label:"Bonos",      icon:"ticket" },
+  { id:"senales",    label:"Señales",    icon:"coin" },
   { id:"enlace",     label:"Mi Enlace",  icon:"link" },
 ];
 
@@ -189,6 +193,10 @@ function DoshaApp() {
     M0.reduce((acc,m)=>({...acc,[m.id]:{s3:"",s5:"",s10:""}}),{})
   );
   const [bonosVendidos, setBonosVendidos] = useState([]);
+  const [senales, setSenales] = useState([]);
+  const [senalModal, setSenalModal] = useState(false);
+  const [devModal, setDevModal] = useState(null); // {id, metodo}
+  const [senalForm, setSenalForm] = useState({cid:"", importe:"", metodo:"efectivo", notas:""});
   const [bonoModal, setBonoModal] = useState(false);
   const [bonoForm, setBonoForm] = useState({ cid:"", mid:"", sesiones:"3" });
 
@@ -204,13 +212,15 @@ function DoshaApp() {
       db.collection(col).doc("masajes").get(),
       db.collection(col).doc("bonos").get(),
       db.collection(col).doc("bonoPrices").get(),
-    ]).then(([cd, cld, md, bd, bpd]) => {
+      db.collection(col).doc("senales").get(),
+    ]).then(([cd, cld, md, bd, bpd, sd]) => {
       if (cd.exists)  setCitas(window._ser.citas_in(cd.data().data));
       else            setCitas(C0);
       if (cld.exists) setClientes(cld.data().data);
       if (md.exists)  setMasajes(md.data().data);
       if (bd.exists)  setBonosVendidos(window._ser.bonos_in(bd.data().data));
       if (bpd.exists) setBonoPrices(bpd.data().data);
+      if (sd.exists)  setSenales(window._ser.senales_in(sd.data().data));
       setLoading(false);
     }).catch(()=>{ setCitas(C0); setLoading(false); });
   }, []);
@@ -363,6 +373,22 @@ function DoshaApp() {
   const cobrarBono = (bid) => {
     const n = bonosVendidos.map(b=>b.id===bid?{...b,cobrado:true}:b);
     setBonosVendidos(n); save("bonos", n);
+  };
+
+  const addSenal = () => {
+    if (!senalForm.cid || !senalForm.importe) return;
+    const nid = senales.length ? Math.max(...senales.map(s=>s.id))+1 : 1;
+    const n = [...senales, {id:nid, cid:parseInt(senalForm.cid), importe:parseFloat(senalForm.importe), metodo:senalForm.metodo, notas:senalForm.notas, estado:"pendiente", fecha:new Date(), fechaDev:null, metodoDev:null}];
+    setSenales(n); save("senales", n);
+    setSenalForm({cid:"", importe:"", metodo:"efectivo", notas:""});
+    setSenalModal(false);
+  };
+
+  const devolverSenal = () => {
+    if (!devModal) return;
+    const n = senales.map(s => s.id===devModal.id ? {...s, estado:"devuelta", fechaDev:new Date(), metodoDev:devModal.metodo} : s);
+    setSenales(n); save("senales", n);
+    setDevModal(null);
   };
 
   const addMasaje = () => {
@@ -1054,6 +1080,80 @@ function DoshaApp() {
           </div>
         )}
 
+        {/* ══ SEÑALES ══ */}
+        {tab==="senales" && (
+          <div className="page">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"7px"}}>
+              <div><div className="pt">Señales</div><div className="ps">Reservas cobradas pendientes de devolución</div></div>
+              <button className="btn btn-g" style={{marginTop:"8px"}} onClick={()=>setSenalModal(true)}><Icon n="plus" s={13}/>Nueva señal</button>
+            </div>
+
+            {/* Stats */}
+            <div className="sr" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"22px"}}>
+              {[
+                {l:"Total retenido",  v:fmt(senales.filter(s=>s.estado==="pendiente").reduce((t,s)=>t+s.importe,0)), c:"var(--amb)"},
+                {l:"Total devuelto",  v:fmt(senales.filter(s=>s.estado==="devuelta").reduce((t,s)=>t+s.importe,0)),  c:"var(--green)"},
+                {l:"Señales activas", v:senales.filter(s=>s.estado==="pendiente").length, c:"var(--gold)"},
+              ].map(s=>(
+                <div key={s.l} className="sc">
+                  <div className="sl">{s.l}</div>
+                  <div className="sv" style={{color:s.c}}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pendientes */}
+            {senales.filter(s=>s.estado==="pendiente").length>0&&(
+              <div style={{marginBottom:"20px"}}>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--amb)",fontWeight:500,marginBottom:"11px"}}>● Pendientes de devolución</div>
+                {senales.filter(s=>s.estado==="pendiente").sort((a,b)=>b.fecha-a.fecha).map(s=>{
+                  const cl=gC(s.cid);
+                  return (
+                    <div key={s.id} className="cr">
+                      <div className="av" style={{width:"34px",height:"34px",fontSize:".85rem",flexShrink:0}}>{cl?.nombre?.charAt(0)||"?"}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:500,fontSize:".86rem",color:"var(--cream)"}}>{cl?.nombre||"Cliente"}</div>
+                        <div style={{fontSize:".72rem",color:"var(--mut)"}}>{s.fecha.toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"2-digit"})} · {s.metodo==="efectivo"?"💵":s.metodo==="bizum"?"📱":"💳"} {s.metodo}{s.notas?` · ${s.notas}`:""}</div>
+                      </div>
+                      <div style={{fontFamily:"var(--fd)",fontSize:"1.15rem",color:"var(--amb)",fontWeight:600}}>{fmt(s.importe)}</div>
+                      <button className="btn btn-g btn-sm" onClick={()=>setDevModal({id:s.id,metodo:"efectivo"})}><Icon n="arrow-back-up" s={12}/>Devolver</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Devueltas */}
+            {senales.filter(s=>s.estado==="devuelta").length>0&&(
+              <div>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--green)",fontWeight:500,marginBottom:"11px"}}>● Devueltas</div>
+                {senales.filter(s=>s.estado==="devuelta").sort((a,b)=>b.fechaDev-a.fechaDev).map(s=>{
+                  const cl=gC(s.cid);
+                  return (
+                    <div key={s.id} className="cr" style={{opacity:.7}}>
+                      <div className="av" style={{width:"34px",height:"34px",fontSize:".85rem",flexShrink:0}}>{cl?.nombre?.charAt(0)||"?"}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:500,fontSize:".86rem",color:"var(--cream)"}}>{cl?.nombre||"Cliente"}</div>
+                        <div style={{fontSize:".72rem",color:"var(--mut)"}}>
+                          Cobrada {s.fecha.toLocaleDateString("es-ES",{day:"2-digit",month:"short"})} · Devuelta {s.fechaDev?.toLocaleDateString("es-ES",{day:"2-digit",month:"short"})} · {s.metodoDev==="efectivo"?"💵":s.metodoDev==="bizum"?"📱":"💳"} {s.metodoDev}
+                        </div>
+                      </div>
+                      <div style={{fontFamily:"var(--fd)",fontSize:"1.05rem",color:"var(--green)"}}>{fmt(s.importe)}</div>
+                      <span style={{fontSize:".7rem",color:"var(--green)",display:"flex",alignItems:"center",gap:"3px"}}><Icon n="check" s={11}/>Devuelta</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {senales.length===0&&(
+              <div style={{textAlign:"center",padding:"44px",color:"var(--mut)",background:"var(--card)",borderRadius:"12px",border:"1px solid var(--b1)"}}>
+                Aún no hay señales registradas · pulsa «Nueva señal» para empezar
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ══ MI ENLACE ══ */}
         {tab==="enlace" && (
           <div className="page">
@@ -1160,6 +1260,70 @@ function DoshaApp() {
           </div>
         );
       })()}
+
+      {/* ─── MODAL: Nueva señal ─── */}
+      {senalModal&&(
+        <div className="ov" onClick={()=>setSenalModal(false)}>
+          <div className="modal" style={{maxWidth:"400px"}} onClick={e=>e.stopPropagation()}>
+            <div className="modt">💰 Nueva señal de reserva</div>
+            <div className="fg"><label className="fl">Cliente</label>
+              <select className="inp" value={senalForm.cid} onChange={e=>setSenalForm(p=>({...p,cid:e.target.value}))}>
+                <option value="">Seleccionar cliente...</option>
+                {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+            <div className="fr">
+              <div className="fg"><label className="fl">Importe (€)</label>
+                <input type="number" min="0" className="inp" placeholder="50" value={senalForm.importe} onChange={e=>setSenalForm(p=>({...p,importe:e.target.value}))} style={{fontFamily:"var(--fd)",fontSize:"1.1rem",color:"var(--gold)"}}/>
+              </div>
+              <div className="fg"><label className="fl">Método de cobro</label>
+                <select className="inp" value={senalForm.metodo} onChange={e=>setSenalForm(p=>({...p,metodo:e.target.value}))}>
+                  <option value="efectivo">💵 Efectivo</option>
+                  <option value="bizum">📱 Bizum</option>
+                  <option value="tarjeta">💳 Tarjeta</option>
+                </select>
+              </div>
+            </div>
+            <div className="fg"><label className="fl">Notas</label>
+              <input className="inp" placeholder="Masaje del 18 de mayo..." value={senalForm.notas} onChange={e=>setSenalForm(p=>({...p,notas:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"16px"}}>
+              <button className="btn btn-o" onClick={()=>setSenalModal(false)}>Cancelar</button>
+              <button className="btn btn-g" onClick={addSenal}>Registrar señal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: Devolver señal ─── */}
+      {devModal&&(
+        <div className="ov" onClick={()=>setDevModal(null)}>
+          <div className="modal" style={{maxWidth:"380px"}} onClick={e=>e.stopPropagation()}>
+            <div className="modt">↩️ Devolver señal</div>
+            <div style={{background:"var(--surf)",borderRadius:"8px",padding:"12px 14px",marginBottom:"16px",textAlign:"center"}}>
+              <div style={{fontSize:".7rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:"4px"}}>Importe a devolver</div>
+              <div style={{fontFamily:"var(--fd)",fontSize:"1.8rem",color:"var(--gold)",fontWeight:600}}>
+                {fmt(senales.find(s=>s.id===devModal.id)?.importe||0)}
+              </div>
+            </div>
+            <div className="fg"><label className="fl">Método de devolución</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px"}}>
+                {[{id:"efectivo",icon:"💵"},{id:"bizum",icon:"📱"},{id:"tarjeta",icon:"💳"}].map(m=>(
+                  <div key={m.id} onClick={()=>setDevModal(p=>({...p,metodo:m.id}))}
+                    style={{border:`2px solid ${devModal.metodo===m.id?"var(--green)":"var(--b2)"}`,background:devModal.metodo===m.id?"rgba(106,158,120,.1)":"var(--card2)",borderRadius:"8px",padding:"12px 6px",textAlign:"center",cursor:"pointer",transition:"all .15s"}}>
+                    <div style={{fontSize:"1.3rem",marginBottom:"3px"}}>{m.icon}</div>
+                    <div style={{fontSize:".75rem",color:devModal.metodo===m.id?"var(--green)":"var(--mut2)",fontWeight:500}}>{m.id.charAt(0).toUpperCase()+m.id.slice(1)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"16px"}}>
+              <button className="btn btn-o" onClick={()=>setDevModal(null)}>Cancelar</button>
+              <button className="btn btn-g" onClick={devolverSenal}><Icon n="check" s={13}/>Confirmar devolución</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL: Vender bono ─── */}
       {bonoModal&&(
