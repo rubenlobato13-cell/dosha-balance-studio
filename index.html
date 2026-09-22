@@ -245,9 +245,13 @@ function DoshaApp() {
   const gM = (id) => masajes.find(m => m.id === id);
   const gC = (id) => clientes.find(c => c.id === id);
 
-  const cobrar = (id) => {
-    const n = citas.map(c => c.id===id ? {...c,estado:"cobrada"} : c);
+  const [pagModal, setPagModal] = useState(null); // {id, tipo:''}
+  const abrirCobro = (id) => setPagModal({id, tipo:"efectivo"});
+  const cobrar = () => {
+    if (!pagModal) return;
+    const n = citas.map(c => c.id===pagModal.id ? {...c, estado:"cobrada", tipoPago:pagModal.tipo} : c);
     setCitas(n); save("citas", n);
+    setPagModal(null);
   };
   const cancelar = (id) => {
     const n = citas.map(c => c.id===id ? {...c,estado:"cancelada"} : c);
@@ -566,7 +570,7 @@ function DoshaApp() {
                           <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                             <span className={`badge ${c.estado}`}>{c.estado}</span>
                             <span style={{fontFamily:"var(--fd)",fontSize:".95rem",color:"var(--gold)"}}>{fmt(c.monto)}</span>
-                            {c.estado==="pendiente" && <button className="btn btn-g btn-sm" onClick={()=>cobrar(c.id)}><Icon n="check" s={11}/>Cobrar</button>}
+                            {c.estado==="pendiente" && <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>}
                           </div>
                         </div>
                       );
@@ -657,7 +661,7 @@ function DoshaApp() {
                           </div>
                           {c.estado==="pendiente"&&(
                             <div style={{paddingLeft:"50px"}}>
-                              <button className="btn btn-g btn-sm" onClick={()=>cobrar(c.id)}><Icon n="check" s={11}/>Cobrar</button>
+                              <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>
                             </div>
                           )}
                         </div>
@@ -710,10 +714,11 @@ function DoshaApp() {
                         <div style={{fontSize:".73rem",color:"var(--mut2)"}}>{m?.icon} {m?.nombre} · {m?.min}min{c.domicilio?" · 🚗":""}{c.extraPrecio>0?` · +${fmt(c.extraPrecio)} extra`:""}</div>
                       </div>
                       <span className={`badge ${c.estado}`}>{c.estado}</span>
+                      {c.tipoPago&&<span style={{fontSize:".67rem",color:"var(--mut2)",background:"var(--card2)",border:"1px solid var(--b2)",borderRadius:"5px",padding:"2px 7px"}}>{c.tipoPago==="efectivo"?"💵":c.tipoPago==="bizum"?"📱":"💳"} {c.tipoPago}</span>}
                       <div style={{fontFamily:"var(--fd)",fontSize:"1.05rem",color:"var(--gold)",minWidth:"48px",textAlign:"right"}}>{fmt(c.monto)}</div>
                       <div style={{display:"flex",gap:"5px",minWidth:"108px",justifyContent:"flex-end"}}>
                         {c.estado==="pendiente"&&<>
-                          <button className="btn btn-g btn-sm" onClick={()=>cobrar(c.id)}><Icon n="check" s={11}/>Cobrar</button>
+                          <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>
                           <button className="btn btn-o btn-sm" onClick={()=>cancelar(c.id)}><Icon n="x" s={11}/></button>
                         </>}
                       </div>
@@ -797,7 +802,7 @@ function DoshaApp() {
                         <div style={{fontSize:".69rem",color:"var(--mut)"}}>{c.fecha.toLocaleDateString("es-ES",{day:"2-digit",month:"short"})} · {m?.nombre}</div>
                       </div>
                       <span style={{fontFamily:"var(--fd)",fontSize:".95rem",color:"var(--gold)"}}>{fmt(c.monto)}</span>
-                      <button className="btn btn-g btn-sm" onClick={()=>cobrar(c.id)}><Icon n="check" s={11}/></button>
+                      <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/></button>
                     </div>
                   );
                 })}
@@ -1047,6 +1052,32 @@ function DoshaApp() {
           </div>
         )}
       </main>
+
+      {/* ─── MODAL: Método de pago ─── */}
+      {pagModal&&(
+        <div className="ov" onClick={()=>setPagModal(null)}>
+          <div className="modal" style={{maxWidth:"360px"}} onClick={e=>e.stopPropagation()}>
+            <div className="modt">¿Cómo se ha pagado?</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"9px",marginBottom:"20px"}}>
+              {[
+                {id:"efectivo", label:"💵 Efectivo"},
+                {id:"bizum",    label:"📱 Bizum"},
+                {id:"tarjeta",  label:"💳 Tarjeta"},
+              ].map(m=>(
+                <div key={m.id} onClick={()=>setPagModal(p=>({...p,tipo:m.id}))}
+                  style={{border:`2px solid ${pagModal.tipo===m.id?"var(--gold)":"var(--b2)"}`,background:pagModal.tipo===m.id?"rgba(201,152,56,.1)":"var(--card2)",borderRadius:"9px",padding:"14px 8px",textAlign:"center",cursor:"pointer",transition:"all .15s"}}>
+                  <div style={{fontSize:"1.4rem",marginBottom:"5px"}}>{m.label.split(" ")[0]}</div>
+                  <div style={{fontSize:".78rem",color:pagModal.tipo===m.id?"var(--gold)":"var(--mut2)",fontWeight:500}}>{m.label.split(" ")[1]}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
+              <button className="btn btn-o" onClick={()=>setPagModal(null)}>Cancelar</button>
+              <button className="btn btn-g" onClick={cobrar}><Icon n="check" s={13}/>Confirmar cobro</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL: Vender bono ─── */}
       {bonoModal&&(
