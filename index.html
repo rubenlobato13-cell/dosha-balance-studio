@@ -205,6 +205,7 @@ function DoshaApp() {
   const [senalForm, setSenalForm] = useState({cid:"", importe:"", metodo:"efectivo", notas:""});
   const [bonoModal, setBonoModal] = useState(false);
   const [bonoForm, setBonoForm] = useState({ cid:"", mid:"", sesiones:"3" });
+  const [editBonoId, setEditBonoId] = useState(null);
   const [bonoSesModal, setBonoSesModal] = useState(null); // {bono}
   const [bonoSesForm, setBonoSesForm] = useState({fecha:"", hora:""});
 
@@ -366,14 +367,34 @@ function DoshaApp() {
   };
 
   const venderBono = () => {
-    if (!bonoForm.cid || !bonoForm.mid) return;
+    if (!bonoForm.cid || !bonoForm.mid || !bonoForm.precioManual) return;
     const ses = parseInt(bonoForm.sesiones);
-    const precio = getBonoPrice(parseInt(bonoForm.mid), ses);
-    const nid = bonosVendidos.length ? Math.max(...bonosVendidos.map(b=>b.id))+1 : 1;
-    const n = [...bonosVendidos, {id:nid,cid:parseInt(bonoForm.cid),mid:parseInt(bonoForm.mid),sesiones:ses,usadas:0,precio,cobrado:false,fecha:new Date()}];
+    const precio = parseFloat(bonoForm.precioManual) || 0;
+    let n;
+    if (editBonoId) {
+      n = bonosVendidos.map(b => b.id===editBonoId
+        ? {...b, cid:parseInt(bonoForm.cid), mid:parseInt(bonoForm.mid), sesiones:ses, precio}
+        : b);
+    } else {
+      const ids = bonosVendidos.map(b=>b.id).filter(x=>Number.isFinite(x));
+      const nid = ids.length ? Math.max(...ids)+1 : 1;
+      n = [...bonosVendidos, {id:nid,cid:parseInt(bonoForm.cid),mid:parseInt(bonoForm.mid),sesiones:ses,usadas:0,precio,cobrado:false,fecha:new Date()}];
+    }
     setBonosVendidos(n); save("bonos", n);
-    setBonoForm({cid:"",mid:"",sesiones:"3"});
+    setBonoForm({cid:"",mid:"",sesiones:"3",precioManual:""});
+    setEditBonoId(null);
     setBonoModal(false);
+  };
+
+  const abrirEditBono = (b) => {
+    setBonoForm({cid:String(b.cid),mid:String(b.mid),sesiones:String(b.sesiones),precioManual:String(b.precio)});
+    setEditBonoId(b.id);
+    setBonoModal(true);
+  };
+
+  const eliminarBono = (bid) => {
+    const n = bonosVendidos.filter(b => b.id!==bid);
+    setBonosVendidos(n); save("bonos", n);
   };
 
   const usarSesionBono = () => {
@@ -1256,6 +1277,8 @@ function DoshaApp() {
                             {b.cobrado && (
                               <span style={{fontSize:".7rem",color:"var(--green)",display:"flex",alignItems:"center",gap:"3px",justifyContent:"flex-end"}}><Icon n="check" s={11}/>Cobrado</span>
                             )}
+                            <button className="btn btn-o btn-sm" onClick={()=>abrirEditBono(b)} style={{whiteSpace:"nowrap"}}><Icon n="pencil" s={11}/>Editar</button>
+                            <button className="btn btn-o btn-sm" onClick={()=>eliminarBono(b.id)} style={{whiteSpace:"nowrap",color:"var(--red)",borderColor:"rgba(184,98,98,.3)"}}><Icon n="trash" s={11}/>Borrar</button>
                             {restantes===0 && (
                               <span style={{fontSize:".7rem",color:"var(--mut)",fontStyle:"italic",textAlign:"center"}}>Completado</span>
                             )}
@@ -1579,11 +1602,11 @@ function DoshaApp() {
         </div>
       )}
 
-      {/* ─── MODAL: Vender bono ─── */}
+      {/* ─── MODAL: Vender / Editar bono ─── */}
       {bonoModal&&(
-        <div className="ov" onClick={()=>setBonoModal(false)}>
+        <div className="ov" onClick={()=>{setBonoModal(false);setEditBonoId(null)}}>
           <div className="modal" style={{maxWidth:"420px"}} onClick={e=>e.stopPropagation()}>
-            <div className="modt">Vender bono</div>
+            <div className="modt">{editBonoId?"✏️ Editar bono":"Vender bono"}</div>
             <div className="fg">
               <label className="fl">Cliente</label>
               <select className="inp" value={bonoForm.cid} onChange={e=>setBonoForm(p=>({...p,cid:e.target.value}))}>
@@ -1607,54 +1630,35 @@ function DoshaApp() {
                   const precio = mid ? (parseFloat(bonoPrices[mid]?.[key])||0) : 0;
                   const sel = bonoForm.sesiones===val;
                   return (
-                    <div
-                      key={val}
-                      onClick={()=>setBonoForm(p=>({...p,sesiones:val}))}
-                      style={{
-                        border:`1px solid ${sel?"var(--gold)":"var(--b2)"}`,
-                        background:sel?"rgba(201,152,56,.1)":"var(--card2)",
-                        borderRadius:"8px",padding:"12px 8px",textAlign:"center",cursor:"pointer",transition:"all .15s"
-                      }}
-                    >
+                    <div key={val} onClick={()=>setBonoForm(p=>({...p,sesiones:val,precioManual:String(precio||p.precioManual||"")}))}
+                      style={{border:`1px solid ${sel?"var(--gold)":"var(--b2)"}`,background:sel?"rgba(201,152,56,.1)":"var(--card2)",borderRadius:"8px",padding:"12px 8px",textAlign:"center",cursor:"pointer",transition:"all .15s"}}>
                       <div style={{fontFamily:"var(--fd)",fontSize:"1.1rem",color:sel?"var(--gold)":"var(--cream)",fontWeight:600}}>{label}</div>
                       <div style={{fontSize:".72rem",color:"var(--mut)",marginTop:"2px"}}>{val} sesiones</div>
                       {precio>0
                         ? <div style={{fontFamily:"var(--fd)",fontSize:".95rem",color:sel?"var(--gold)":"var(--mut2)",marginTop:"5px"}}>{fmt(precio)}</div>
-                        : <div style={{fontSize:".68rem",color:"var(--mut)",fontStyle:"italic",marginTop:"5px"}}>Sin precio</div>
-                      }
+                        : <div style={{fontSize:".68rem",color:"var(--mut)",fontStyle:"italic",marginTop:"5px"}}>Sin precio</div>}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Resumen */}
-            {bonoForm.mid && bonoForm.cid && (()=>{
-              const mid=parseInt(bonoForm.mid), ses=parseInt(bonoForm.sesiones);
-              const precio=getBonoPrice(mid,ses);
-              const m=gM(mid);
-              return precio>0 ? (
-                <div style={{background:"rgba(201,152,56,.08)",border:"1px solid rgba(201,152,56,.2)",borderRadius:"8px",padding:"12px 14px",marginBottom:"4px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:".8rem",color:"var(--mut2)"}}>{m?.icon} {m?.nombre} × {ses} sesiones</div>
-                      <div style={{fontSize:".72rem",color:"var(--mut)",marginTop:"2px"}}>
-                        {m ? `${fmt(m.precio)}/sesión · ahorro ${fmt(m.precio*ses-precio)}` : ""}
-                      </div>
-                    </div>
-                    <span style={{fontFamily:"var(--fd)",fontSize:"1.4rem",color:"var(--gold)",fontWeight:600}}>{fmt(precio)}</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{fontSize:".78rem",color:"var(--amb)",padding:"8px 12px",background:"rgba(201,128,40,.08)",borderRadius:"7px",border:"1px solid rgba(201,128,40,.2)",marginBottom:"4px"}}>
-                  ⚠️ Define el precio de este bono en la tabla antes de venderlo
-                </div>
-              );
-            })()}
+            <div className="fg" style={{marginTop:"10px"}}>
+              <label className="fl">Precio total del bono (€) *</label>
+              <input type="number" min="0" className="inp" placeholder="Introduce el importe..."
+                value={bonoForm.precioManual||""}
+                onChange={e=>setBonoForm(p=>({...p,precioManual:e.target.value}))}
+                style={{fontFamily:"var(--fd)",fontSize:"1.1rem",color:"var(--gold)"}}/>
+            </div>
+
+            {bonoForm.precioManual>0&&<div style={{background:"rgba(201,152,56,.08)",border:"1px solid rgba(201,152,56,.2)",borderRadius:"8px",padding:"10px 13px",marginBottom:"4px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:".8rem",color:"var(--mut2)"}}>{gM(parseInt(bonoForm.mid))?.nombre} × {bonoForm.sesiones} sesiones</span>
+              <span style={{fontFamily:"var(--fd)",fontSize:"1.4rem",color:"var(--gold)",fontWeight:600}}>{fmt(bonoForm.precioManual)}</span>
+            </div>}
 
             <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"16px"}}>
-              <button className="btn btn-o" onClick={()=>setBonoModal(false)}>Cancelar</button>
-              <button className="btn btn-g" onClick={venderBono}>Vender bono</button>
+              <button className="btn btn-o" onClick={()=>{setBonoModal(false);setEditBonoId(null);setBonoForm({cid:"",mid:"",sesiones:"3",precioManual:""})}}>Cancelar</button>
+              <button className="btn btn-g" onClick={venderBono} disabled={!bonoForm.cid||!bonoForm.mid||!bonoForm.precioManual}>{editBonoId?"Guardar cambios":"Vender bono"}</button>
             </div>
           </div>
         </div>
