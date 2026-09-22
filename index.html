@@ -258,8 +258,9 @@ function DoshaApp() {
     if (!pagModal) return;
     const pagos = pagModal.pagos.filter(p=>p.importe>0);
     const tipoPago = pagos.length===1 ? pagos[0].metodo : "fraccionado";
+    const nuevoMonto = pagos.reduce((s,p)=>s+(parseFloat(p.importe)||0),0);
     const n = citas.map(c => c.id===pagModal.id
-      ? {...c, estado:"cobrada", tipoPago, pagos}
+      ? {...c, estado:"cobrada", tipoPago, pagos, monto:nuevoMonto}
       : c);
     setCitas(n); save("citas", n);
     setPagModal(null);
@@ -1097,27 +1098,11 @@ function DoshaApp() {
 
       {/* ─── MODAL: Método de pago ─── */}
       {pagModal&&(()=>{
-        const cita = citas.find(c=>c.id===pagModal.id);
         const totalPagado = pagModal.pagos.reduce((s,p)=>s+(parseFloat(p.importe)||0),0);
-        const resto = (cita?.monto||0) - totalPagado;
         return (
           <div className="ov" onClick={()=>setPagModal(null)}>
             <div className="modal" style={{maxWidth:"420px"}} onClick={e=>e.stopPropagation()}>
               <div className="modt">💳 Registro de pago</div>
-              <div style={{background:"var(--surf)",borderRadius:"8px",padding:"10px 14px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Total sesión</div>
-                  <div style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:"var(--gold)",fontWeight:600}}>{fmt(cita?.monto||0)}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Registrado</div>
-                  <div style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:totalPagado>=(cita?.monto||0)?"var(--green)":"var(--amb)",fontWeight:600}}>{fmt(totalPagado)}</div>
-                </div>
-                {resto>0&&<div style={{textAlign:"right"}}>
-                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Pendiente</div>
-                  <div style={{fontFamily:"var(--fd)",fontSize:"1.1rem",color:"var(--red)",fontWeight:600}}>{fmt(resto)}</div>
-                </div>}
-              </div>
 
               {pagModal.pagos.map((linea,i)=>(
                 <div key={i} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"9px"}}>
@@ -1132,9 +1117,16 @@ function DoshaApp() {
                 </div>
               ))}
 
-              <button className="btn btn-o btn-sm" onClick={addLineaPago} style={{marginBottom:"16px",width:"100%",justifyContent:"center"}}>
+              <button className="btn btn-o btn-sm" onClick={addLineaPago} style={{marginBottom:"12px",width:"100%",justifyContent:"center"}}>
                 <Icon n="plus" s={12}/>Añadir otra forma de pago
               </button>
+
+              {totalPagado>0&&(
+                <div style={{background:"var(--surf)",borderRadius:"8px",padding:"10px 14px",marginBottom:"14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:".75rem",color:"var(--mut)"}}>Total a cobrar</span>
+                  <span style={{fontFamily:"var(--fd)",fontSize:"1.4rem",color:"var(--green)",fontWeight:600}}>{fmt(totalPagado)}</span>
+                </div>
+              )}
 
               <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
                 <button className="btn btn-o" onClick={()=>setPagModal(null)}>Cancelar</button>
