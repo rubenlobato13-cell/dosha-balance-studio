@@ -452,7 +452,7 @@ function DoshaApp() {
     const monto = Math.max(0, (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio + totalAdicionales - descuento);
     let n;
     if (editCitaId) {
-      n = citas.map(c => c.id===editCitaId ? {...c, cid:parseInt(ncForm.cid), mid:parseInt(ncForm.mid), fecha, monto, domicilio:ncForm.domicilio, extraPrecio, descuento, adicionales:ncForm.adicionales||[]} : c);
+      n = citas.map(c => (editCitaId!=null && Number.isFinite(editCitaId) && c.id===editCitaId) ? {...c, cid:parseInt(ncForm.cid), mid:parseInt(ncForm.mid), fecha, monto, domicilio:ncForm.domicilio, extraPrecio, descuento, adicionales:ncForm.adicionales||[]} : c);
     } else {
       const nid = citas.length ? Math.max(...citas.map(c=>c.id))+1 : 1;
       n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento,adicionales:ncForm.adicionales||[]}];
