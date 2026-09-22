@@ -235,6 +235,7 @@ function DoshaApp() {
   const [mModal,  setMModal] = useState(false);
   const [ncModal, setNcModal]= useState(false);
   const [clModal, setClModal]= useState(false);
+  const [editClId, setEditClId] = useState(null);
   const [copied,  setCopied] = useState(false);
   const [mForm,   setMForm]  = useState({ icon:"✨", nombre:"", min:"", precio:"", desc:"" });
   const [ncForm,  setNcForm] = useState({ cid:"", mid:"", fecha:"", hora:"", domicilio:false, extra:"", descuento:"" });
@@ -245,16 +246,26 @@ function DoshaApp() {
   const gM = (id) => masajes.find(m => m.id === id);
   const gC = (id) => clientes.find(c => c.id === id);
 
-  const [pagModal, setPagModal] = useState(null); // {id, tipo:''}
-  const abrirCobro = (id) => setPagModal({id, tipo:"efectivo"});
+  const [pagModal, setPagModal] = useState(null);
+  const METODOS = [{id:"efectivo",icon:"💵"},{id:"bizum",icon:"📱"},{id:"tarjeta",icon:"💳"}];
+  const abrirCobro = (id) => {
+    const cita = citas.find(c=>c.id===id);
+    const pagos = cita?.pagos?.length ? cita.pagos : [{metodo:"efectivo", importe: cita?.monto||""}];
+    setPagModal({id, pagos, editar:!!cita?.pagos?.length});
+  };
   const cobrar = () => {
     if (!pagModal) return;
-    const n = pagModal.editar
-      ? citas.map(c => c.id===pagModal.id ? {...c, tipoPago:pagModal.tipo} : c)
-      : citas.map(c => c.id===pagModal.id ? {...c, estado:"cobrada", tipoPago:pagModal.tipo} : c);
+    const pagos = pagModal.pagos.filter(p=>p.importe>0);
+    const tipoPago = pagos.length===1 ? pagos[0].metodo : "fraccionado";
+    const n = citas.map(c => c.id===pagModal.id
+      ? {...c, estado:"cobrada", tipoPago, pagos}
+      : c);
     setCitas(n); save("citas", n);
     setPagModal(null);
   };
+  const addLineaPago = () => setPagModal(p=>({...p, pagos:[...p.pagos,{metodo:"efectivo",importe:""}]}));
+  const updLineaPago = (i,k,v) => setPagModal(p=>({...p, pagos:p.pagos.map((l,idx)=>idx===i?{...l,[k]:v}:l)}));
+  const delLineaPago = (i) => setPagModal(p=>({...p, pagos:p.pagos.filter((_,idx)=>idx!==i)}));
   const cancelar = (id) => {
     const n = citas.map(c => c.id===id ? {...c,estado:"cancelada"} : c);
     setCitas(n); save("citas", n);
@@ -300,12 +311,24 @@ function DoshaApp() {
 
   const addCliente = () => {
     if (!clForm.nombre) return;
-    const nid = clientes.length ? Math.max(...clientes.map(c=>c.id))+1 : 1;
-    const nuevo = {id:nid,nombre:clForm.nombre,tel:clForm.tel,email:clForm.email,fav:parseInt(clForm.fav)||1,notas:clForm.notas};
-    const n = [...clientes, nuevo];
+    let n;
+    if (editClId) {
+      n = clientes.map(c => c.id===editClId ? {...c,...clForm,fav:parseInt(clForm.fav)||1} : c);
+    } else {
+      const nid = clientes.length ? Math.max(...clientes.map(c=>c.id))+1 : 1;
+      const nuevo = {id:nid,nombre:clForm.nombre,tel:clForm.tel,email:clForm.email,fav:parseInt(clForm.fav)||1,notas:clForm.notas};
+      n = [...clientes, nuevo];
+    }
     setClientes(n); save("clientes", n);
     setClForm({nombre:"",tel:"",email:"",fav:"",notas:""});
+    setEditClId(null);
     setClModal(false);
+  };
+  const abrirEditCliente = (cl) => {
+    setClForm({nombre:cl.nombre,tel:cl.tel||"",email:cl.email||"",fav:cl.fav||"",notas:cl.notas||""});
+    setEditClId(cl.id);
+    setSelCl(null);
+    setClModal(true);
   };
 
   const updateBonoPrice = (mid, key, val) => {
@@ -716,14 +739,18 @@ function DoshaApp() {
                         <div style={{fontSize:".73rem",color:"var(--mut2)"}}>{m?.icon} {m?.nombre} · {m?.min}min{c.domicilio?" · 🚗":""}{c.extraPrecio>0?` · +${fmt(c.extraPrecio)} extra`:""}</div>
                       </div>
                       <span className={`badge ${c.estado}`}>{c.estado}</span>
-                      {c.tipoPago&&<span style={{fontSize:".67rem",color:"var(--mut2)",background:"var(--card2)",border:"1px solid var(--b2)",borderRadius:"5px",padding:"2px 7px"}}>{c.tipoPago==="efectivo"?"💵":c.tipoPago==="bizum"?"📱":"💳"} {c.tipoPago}</span>}
+                      {c.tipoPago&&<span style={{fontSize:".67rem",color:"var(--mut2)",background:"var(--card2)",border:"1px solid var(--b2)",borderRadius:"5px",padding:"2px 7px"}}>
+                    {c.tipoPago==="fraccionado"
+                      ? `🔀 ${c.pagos?.map(p=>`${p.metodo==="efectivo"?"💵":p.metodo==="bizum"?"📱":"💳"}${fmt(p.importe)}`).join(" + ")}`
+                      : `${c.tipoPago==="efectivo"?"💵":c.tipoPago==="bizum"?"📱":"💳"} ${c.tipoPago}`}
+                  </span>}
                       <div style={{fontFamily:"var(--fd)",fontSize:"1.05rem",color:"var(--gold)",minWidth:"48px",textAlign:"right"}}>{fmt(c.monto)}</div>
                       <div style={{display:"flex",gap:"5px",minWidth:"108px",justifyContent:"flex-end"}}>
                         {c.estado==="pendiente"&&<>
                           <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>
                           <button className="btn btn-o btn-sm" onClick={()=>cancelar(c.id)}><Icon n="x" s={11}/></button>
                         </>}
-                        {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>setPagModal({id:c.id,tipo:c.tipoPago||"efectivo",editar:true})}><Icon n="pencil" s={11}/>Pago</button>}
+                        {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="pencil" s={11}/>Pago</button>}
                       </div>
                     </div>
                   );
@@ -1057,30 +1084,54 @@ function DoshaApp() {
       </main>
 
       {/* ─── MODAL: Método de pago ─── */}
-      {pagModal&&(
-        <div className="ov" onClick={()=>setPagModal(null)}>
-          <div className="modal" style={{maxWidth:"360px"}} onClick={e=>e.stopPropagation()}>
-            <div className="modt">{pagModal?.editar?"Editar método de pago":"¿Cómo se ha pagado?"}</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"9px",marginBottom:"20px"}}>
-              {[
-                {id:"efectivo", label:"💵 Efectivo"},
-                {id:"bizum",    label:"📱 Bizum"},
-                {id:"tarjeta",  label:"💳 Tarjeta"},
-              ].map(m=>(
-                <div key={m.id} onClick={()=>setPagModal(p=>({...p,tipo:m.id}))}
-                  style={{border:`2px solid ${pagModal.tipo===m.id?"var(--gold)":"var(--b2)"}`,background:pagModal.tipo===m.id?"rgba(201,152,56,.1)":"var(--card2)",borderRadius:"9px",padding:"14px 8px",textAlign:"center",cursor:"pointer",transition:"all .15s"}}>
-                  <div style={{fontSize:"1.4rem",marginBottom:"5px"}}>{m.label.split(" ")[0]}</div>
-                  <div style={{fontSize:".78rem",color:pagModal.tipo===m.id?"var(--gold)":"var(--mut2)",fontWeight:500}}>{m.label.split(" ")[1]}</div>
+      {pagModal&&(()=>{
+        const cita = citas.find(c=>c.id===pagModal.id);
+        const totalPagado = pagModal.pagos.reduce((s,p)=>s+(parseFloat(p.importe)||0),0);
+        const resto = (cita?.monto||0) - totalPagado;
+        return (
+          <div className="ov" onClick={()=>setPagModal(null)}>
+            <div className="modal" style={{maxWidth:"420px"}} onClick={e=>e.stopPropagation()}>
+              <div className="modt">💳 Registro de pago</div>
+              <div style={{background:"var(--surf)",borderRadius:"8px",padding:"10px 14px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Total sesión</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:"var(--gold)",fontWeight:600}}>{fmt(cita?.monto||0)}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Registrado</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:totalPagado>=(cita?.monto||0)?"var(--green)":"var(--amb)",fontWeight:600}}>{fmt(totalPagado)}</div>
+                </div>
+                {resto>0&&<div style={{textAlign:"right"}}>
+                  <div style={{fontSize:".68rem",color:"var(--mut)",textTransform:"uppercase",letterSpacing:".08em"}}>Pendiente</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:"1.1rem",color:"var(--red)",fontWeight:600}}>{fmt(resto)}</div>
+                </div>}
+              </div>
+
+              {pagModal.pagos.map((linea,i)=>(
+                <div key={i} style={{display:"flex",gap:"8px",alignItems:"center",marginBottom:"9px"}}>
+                  <select className="inp" value={linea.metodo} onChange={e=>updLineaPago(i,"metodo",e.target.value)} style={{width:"140px",flexShrink:0}}>
+                    {METODOS.map(m=><option key={m.id} value={m.id}>{m.icon} {m.id.charAt(0).toUpperCase()+m.id.slice(1)}</option>)}
+                  </select>
+                  <input type="number" min="0" className="inp" placeholder="0" value={linea.importe}
+                    onChange={e=>updLineaPago(i,"importe",e.target.value)}
+                    style={{textAlign:"right",fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--gold)"}}/>
+                  <span style={{fontSize:".78rem",color:"var(--mut)",flexShrink:0}}>€</span>
+                  {pagModal.pagos.length>1&&<button className="btn btn-o btn-sm" onClick={()=>delLineaPago(i)} style={{flexShrink:0,padding:"5px 7px"}}><Icon n="x" s={11}/></button>}
                 </div>
               ))}
-            </div>
-            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
-              <button className="btn btn-o" onClick={()=>setPagModal(null)}>Cancelar</button>
-              <button className="btn btn-g" onClick={cobrar}><Icon n="check" s={13}/>{pagModal?.editar?"Guardar":"Confirmar cobro"}</button>
+
+              <button className="btn btn-o btn-sm" onClick={addLineaPago} style={{marginBottom:"16px",width:"100%",justifyContent:"center"}}>
+                <Icon n="plus" s={12}/>Añadir otra forma de pago
+              </button>
+
+              <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
+                <button className="btn btn-o" onClick={()=>setPagModal(null)}>Cancelar</button>
+                <button className="btn btn-g" onClick={cobrar} disabled={totalPagado<=0}><Icon n="check" s={13}/>Confirmar cobro</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ─── MODAL: Vender bono ─── */}
       {bonoModal&&(
@@ -1167,7 +1218,7 @@ function DoshaApp() {
       {clModal&&(
         <div className="ov" onClick={()=>setClModal(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modt">Nuevo cliente</div>
+            <div className="modt">{editClId?"Editar cliente":"Nuevo cliente"}</div>
             <div className="fg">
               <label className="fl">Nombre completo *</label>
               <input className="inp" value={clForm.nombre} onChange={e=>setClForm(p=>({...p,nombre:e.target.value}))} placeholder="Nombre y apellidos..."/>
@@ -1194,8 +1245,8 @@ function DoshaApp() {
               <textarea className="inp" value={clForm.notas} onChange={e=>setClForm(p=>({...p,notas:e.target.value}))} placeholder="Alergias, preferencias, observaciones..."/>
             </div>
             <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"18px"}}>
-              <button className="btn btn-o" onClick={()=>setClModal(false)}>Cancelar</button>
-              <button className="btn btn-g" onClick={addCliente}>Guardar cliente</button>
+              <button className="btn btn-o" onClick={()=>{setClModal(false);setEditClId(null);setClForm({nombre:"",tel:"",email:"",fav:"",notas:""})}}>Cancelar</button>
+              <button className="btn btn-g" onClick={addCliente}>{editClId?"Guardar cambios":"Guardar cliente"}</button>
             </div>
           </div>
         </div>
@@ -1385,6 +1436,7 @@ function DoshaApp() {
                   <span>✉️ {selCl.email}</span>
                 </div>
               </div>
+              <button className="btn btn-o btn-sm" onClick={()=>abrirEditCliente(selCl)}><Icon n="pencil" s={12}/>Editar</button>
               <button className="btn-gh" onClick={()=>setSelCl(null)}><Icon n="x" s={15}/></button>
             </div>
             {selCl.notas&&(
