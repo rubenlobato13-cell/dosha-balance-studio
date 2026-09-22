@@ -38,6 +38,7 @@ window._save = {
   bonos:       (d) => window._db.collection(_col).doc("bonos").set({data: window._ser.bonos(d)}),
   bonoPrices:  (d) => window._db.collection(_col).doc("bonoPrices").set({data: d}),
   senales:     (d) => window._db.collection(_col).doc("senales").set({data: window._ser.senales(d)}),
+  solicitudes: (d) => window._db.collection(_col).doc("solicitudes").set({data: d}),
 };
 window._ser.senales    = (arr) => arr.map(s=>({...s, fecha:s.fecha.getTime(), fechaDev:s.fechaDev?s.fechaDev.getTime():null}));
 window._ser.senales_in = (arr) => arr.map(s=>({...s, fecha:new Date(s.fecha), fechaDev:s.fechaDev?new Date(s.fechaDev):null}));
@@ -167,6 +168,7 @@ const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto"
 const DIAS  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
 const NAV = [
   { id:"resumen",    label:"Resumen",    icon:"layout-grid" },
+  { id:"reservas",   label:"Reservas",   icon:"calendar-plus" },
   { id:"calendario", label:"Calendario", icon:"calendar" },
   { id:"citas",      label:"Citas",      icon:"clipboard-list" },
   { id:"clientes",   label:"Clientes",   icon:"users" },
@@ -194,6 +196,9 @@ function DoshaApp() {
   );
   const [bonosVendidos, setBonosVendidos] = useState([]);
   const [senales, setSenales] = useState([]);
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [confModal, setConfModal] = useState(null); // solicitud a confirmar
+  const [confForm, setConfForm] = useState({fecha:"", hora:""});
   const [senalModal, setSenalModal] = useState(false);
   const [devModal, setDevModal] = useState(null); // {id, metodo}
   const [senalForm, setSenalForm] = useState({cid:"", importe:"", metodo:"efectivo", notas:""});
@@ -213,14 +218,16 @@ function DoshaApp() {
       db.collection(col).doc("bonos").get(),
       db.collection(col).doc("bonoPrices").get(),
       db.collection(col).doc("senales").get(),
-    ]).then(([cd, cld, md, bd, bpd, sd]) => {
-      if (cd.exists)  setCitas(window._ser.citas_in(cd.data().data));
-      else            setCitas(C0);
-      if (cld.exists) setClientes(cld.data().data);
-      if (md.exists)  setMasajes(md.data().data);
-      if (bd.exists)  setBonosVendidos(window._ser.bonos_in(bd.data().data));
-      if (bpd.exists) setBonoPrices(bpd.data().data);
-      if (sd.exists)  setSenales(window._ser.senales_in(sd.data().data));
+      db.collection(col).doc("solicitudes").get(),
+    ]).then(([cd, cld, md, bd, bpd, sd, sold]) => {
+      if (cd.exists)   setCitas(window._ser.citas_in(cd.data().data));
+      else             setCitas(C0);
+      if (cld.exists)  setClientes(cld.data().data);
+      if (md.exists)   setMasajes(md.data().data);
+      if (bd.exists)   setBonosVendidos(window._ser.bonos_in(bd.data().data));
+      if (bpd.exists)  setBonoPrices(bpd.data().data);
+      if (sd.exists)   setSenales(window._ser.senales_in(sd.data().data));
+      if (sold.exists) setSolicitudes(sold.data().data);
       setLoading(false);
     }).catch(()=>{ setCitas(C0); setLoading(false); });
   }, []);
@@ -389,6 +396,39 @@ function DoshaApp() {
     const n = senales.map(s => s.id===devModal.id ? {...s, estado:"devuelta", fechaDev:new Date(), metodoDev:devModal.metodo} : s);
     setSenales(n); save("senales", n);
     setDevModal(null);
+  };
+
+  const rechazarSolicitud = (id) => {
+    const n = solicitudes.map(s => s.id===id ? {...s, estado:"rechazada"} : s);
+    setSolicitudes(n); save("solicitudes", n);
+  };
+
+  const confirmarSolicitud = () => {
+    if (!confModal || !confForm.fecha || !confForm.hora) return;
+    const s = confModal;
+    const [y,mo,d] = confForm.fecha.split("-").map(Number);
+    const [h,mi]   = confForm.hora.split(":").map(Number);
+    const fecha = new Date(y,mo-1,d,h,mi);
+    const m = masajes.find(m => m.nombre===s.masaje) || masajes[0];
+    // Crear cita
+    const nid = citas.length ? Math.max(...citas.map(c=>c.id))+1 : 1;
+    // Buscar o crear cliente
+    let cl = clientes.find(c => c.tel===s.tel || c.nombre.toLowerCase()===s.nombre.toLowerCase());
+    let newClientes = clientes;
+    if (!cl) {
+      const ncid = clientes.length ? Math.max(...clientes.map(c=>c.id))+1 : 1;
+      cl = {id:ncid, nombre:s.nombre, tel:s.tel, email:s.email||"", fav:m?.id||1, notas:""};
+      newClientes = [...clientes, cl];
+      setClientes(newClientes); save("clientes", newClientes);
+    }
+    const newCita = {id:nid, cid:cl.id, mid:m?.id||1, fecha, estado:"pendiente", monto:s.precio||m?.precio||0, domicilio:s.domicilio||false, extraPrecio:0, descuento:0, adicionales:[]};
+    const newCitas = [...citas, newCita];
+    setCitas(newCitas); save("citas", newCitas);
+    // Marcar solicitud como confirmada
+    const newSols = solicitudes.map(sol => sol.id===s.id ? {...sol, estado:"confirmada"} : sol);
+    setSolicitudes(newSols); save("solicitudes", newSols);
+    setConfModal(null);
+    setConfForm({fecha:"", hora:""});
   };
 
   const addMasaje = () => {
@@ -588,6 +628,11 @@ function DoshaApp() {
           {NAV.map(n=>(
             <div key={n.id} className={`ni ${tab===n.id?"on":""}`} onClick={()=>setTab(n.id)}>
               <Icon n={n.icon} s={15}/> {n.label}
+              {n.id==="reservas" && solicitudes.filter(s=>s.estado==="nueva").length>0 && (
+                <span style={{marginLeft:"auto",background:"var(--red)",color:"white",borderRadius:"10px",fontSize:".62rem",fontWeight:700,padding:"1px 6px",minWidth:"18px",textAlign:"center"}}>
+                  {solicitudes.filter(s=>s.estado==="nueva").length}
+                </span>
+              )}
             </div>
           ))}
         </nav>
@@ -682,6 +727,109 @@ function DoshaApp() {
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ══ RESERVAS ══ */}
+        {tab==="reservas" && (
+          <div className="page">
+            <div className="pt">Reservas</div>
+            <div className="ps">Solicitudes recibidas desde la página pública</div>
+
+            {/* Stats */}
+            <div className="sr" style={{gridTemplateColumns:"repeat(3,1fr)"}}>
+              {[
+                {l:"Nuevas",      v:solicitudes.filter(s=>s.estado==="nueva").length,       c:"var(--red)"},
+                {l:"Confirmadas", v:solicitudes.filter(s=>s.estado==="confirmada").length,   c:"var(--green)"},
+                {l:"Rechazadas",  v:solicitudes.filter(s=>s.estado==="rechazada").length,    c:"var(--mut)"},
+              ].map(s=>(
+                <div key={s.l} className="sc">
+                  <div className="sl">{s.l}</div>
+                  <div className="sv" style={{color:s.c}}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Nuevas */}
+            {solicitudes.filter(s=>s.estado==="nueva").length>0 && (
+              <div style={{marginBottom:"22px"}}>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--red)",fontWeight:500,marginBottom:"11px"}}>● Nuevas — pendientes de confirmar</div>
+                {solicitudes.filter(s=>s.estado==="nueva").sort((a,b)=>b.creado-a.creado).map(s=>(
+                  <div key={s.id} style={{background:"var(--card)",border:"1px solid var(--b2)",borderRadius:"11px",padding:"16px 18px",marginBottom:"9px"}}>
+                    <div style={{display:"flex",gap:"13px",alignItems:"flex-start"}}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"5px"}}>
+                          <span style={{fontWeight:600,fontSize:".9rem",color:"var(--cream)"}}>{s.nombre}</span>
+                          <span style={{fontSize:".7rem",color:"var(--mut)"}}>·</span>
+                          <span style={{fontSize:".78rem",color:"var(--gold)"}}>{s.masaje}</span>
+                          <span style={{fontSize:".7rem",color:"var(--mut)"}}>·</span>
+                          <span style={{fontFamily:"var(--fd)",fontSize:".9rem",color:"var(--gold)"}}>{fmt(s.precio||0)}</span>
+                        </div>
+                        <div style={{display:"flex",gap:"14px",flexWrap:"wrap"}}>
+                          {[
+                            {i:"📞", v:s.tel},
+                            s.email&&{i:"✉️", v:s.email},
+                            s.sede&&{i:"📍", v:s.sede},
+                            s.fecha&&{i:"📅", v:s.fecha},
+                            s.hora&&{i:"🕐", v:s.hora},
+                            s.domicilio&&{i:"🚗", v:"Domicilio"},
+                          ].filter(Boolean).map((x,i)=>(
+                            <span key={i} style={{fontSize:".74rem",color:"var(--mut2)"}}>{x.i} {x.v}</span>
+                          ))}
+                        </div>
+                        {s.notas&&<div style={{marginTop:"6px",fontSize:".72rem",color:"var(--amb)",background:"rgba(201,128,40,.08)",padding:"3px 8px",borderRadius:"4px"}}>📝 {s.notas}</div>}
+                        <div style={{fontSize:".65rem",color:"var(--mut)",marginTop:"6px"}}>Recibida: {new Date(s.creado).toLocaleString("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:"6px",flexShrink:0}}>
+                        <button className="btn btn-g btn-sm" onClick={()=>{setConfModal(s);setConfForm({fecha:s.fecha||"",hora:s.hora||""})}}><Icon n="check" s={12}/>Confirmar</button>
+                        <button className="btn btn-o btn-sm" onClick={()=>rechazarSolicitud(s.id)}><Icon n="x" s={12}/>Rechazar</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Confirmadas */}
+            {solicitudes.filter(s=>s.estado==="confirmada").length>0 && (
+              <div style={{marginBottom:"22px"}}>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--green)",fontWeight:500,marginBottom:"11px"}}>● Confirmadas</div>
+                {solicitudes.filter(s=>s.estado==="confirmada").sort((a,b)=>b.creado-a.creado).map(s=>(
+                  <div key={s.id} className="cr" style={{opacity:.75}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:500,fontSize:".85rem",color:"var(--cream)"}}>{s.nombre}</div>
+                      <div style={{fontSize:".72rem",color:"var(--mut)"}}>{s.masaje} · {s.fecha} {s.hora}</div>
+                    </div>
+                    <span style={{fontFamily:"var(--fd)",fontSize:".9rem",color:"var(--green)"}}>{fmt(s.precio||0)}</span>
+                    <span style={{fontSize:".7rem",color:"var(--green)",display:"flex",alignItems:"center",gap:"3px"}}><Icon n="check" s={11}/>Cita creada</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Rechazadas */}
+            {solicitudes.filter(s=>s.estado==="rechazada").length>0 && (
+              <div>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1rem",color:"var(--mut)",fontWeight:500,marginBottom:"11px"}}>● Rechazadas</div>
+                {solicitudes.filter(s=>s.estado==="rechazada").sort((a,b)=>b.creado-a.creado).map(s=>(
+                  <div key={s.id} className="cr" style={{opacity:.5}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:500,fontSize:".85rem",color:"var(--cream)"}}>{s.nombre}</div>
+                      <div style={{fontSize:".72rem",color:"var(--mut)"}}>{s.masaje} · {s.tel}</div>
+                    </div>
+                    <span style={{fontFamily:"var(--fd)",fontSize:".9rem",color:"var(--mut)"}}>{fmt(s.precio||0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {solicitudes.length===0 && (
+              <div style={{textAlign:"center",padding:"50px",color:"var(--mut)",background:"var(--card)",borderRadius:"12px",border:"1px solid var(--b1)"}}>
+                <div style={{fontSize:"2rem",marginBottom:"10px"}}>📋</div>
+                <div style={{fontFamily:"var(--fd)",fontSize:"1.1rem",marginBottom:"6px",color:"var(--cream)"}}>Aún no hay solicitudes</div>
+                <div style={{fontSize:".8rem"}}>Cuando un cliente rellene el formulario de reservas aparecerá aquí automáticamente</div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1260,6 +1408,37 @@ function DoshaApp() {
           </div>
         );
       })()}
+
+      {/* ─── MODAL: Confirmar reserva ─── */}
+      {confModal&&(
+        <div className="ov" onClick={()=>setConfModal(null)}>
+          <div className="modal" style={{maxWidth:"430px"}} onClick={e=>e.stopPropagation()}>
+            <div className="modt">✅ Confirmar reserva</div>
+            <div style={{background:"var(--surf)",borderRadius:"8px",padding:"12px 14px",marginBottom:"16px"}}>
+              <div style={{fontWeight:600,fontSize:".9rem",color:"var(--cream)",marginBottom:"4px"}}>{confModal.nombre}</div>
+              <div style={{fontSize:".78rem",color:"var(--mut2)"}}>{confModal.masaje} · {fmt(confModal.precio||0)}</div>
+              {confModal.tel&&<div style={{fontSize:".75rem",color:"var(--mut)",marginTop:"3px"}}>📞 {confModal.tel}{confModal.email?` · ✉️ ${confModal.email}`:""}</div>}
+              {confModal.notas&&<div style={{fontSize:".72rem",color:"var(--amb)",marginTop:"4px"}}>📝 {confModal.notas}</div>}
+            </div>
+            <div style={{fontSize:".72rem",color:"var(--mut2)",marginBottom:"10px"}}>Asigna la fecha y hora definitivas para crear la cita:</div>
+            <div className="fr">
+              <div className="fg"><label className="fl">Fecha *</label>
+                <input type="date" className="inp" value={confForm.fecha} onChange={e=>setConfForm(p=>({...p,fecha:e.target.value}))}/>
+              </div>
+              <div className="fg"><label className="fl">Hora *</label>
+                <input type="time" className="inp" value={confForm.hora} onChange={e=>setConfForm(p=>({...p,hora:e.target.value}))}/>
+              </div>
+            </div>
+            <div style={{background:"rgba(106,158,120,.08)",border:"1px solid rgba(106,158,120,.2)",borderRadius:"7px",padding:"9px 12px",fontSize:".76rem",color:"var(--green)",marginBottom:"14px"}}>
+              💡 Si el cliente no existe en tu base de datos se creará automáticamente
+            </div>
+            <div style={{display:"flex",gap:"9px",justifyContent:"flex-end"}}>
+              <button className="btn btn-o" onClick={()=>setConfModal(null)}>Cancelar</button>
+              <button className="btn btn-g" onClick={confirmarSolicitud} disabled={!confForm.fecha||!confForm.hora}><Icon n="check" s={13}/>Crear cita</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL: Nueva señal ─── */}
       {senalModal&&(
