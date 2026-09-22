@@ -294,6 +294,10 @@ function DoshaApp() {
     const n = citas.map(c => c.id===id ? {...c,estado:"cancelada"} : c);
     setCitas(n); save("citas", n);
   };
+  const eliminarCita = (id) => {
+    const n = citas.filter(c => c.id!==id);
+    setCitas(n); save("citas", n);
+  };
 
   const citasHoy = useMemo(() =>
     citas.filter(c => isSameDay(c.fecha, HOY)).sort((a,b) => a.fecha-b.fecha),
@@ -541,99 +545,129 @@ function DoshaApp() {
         "Teléfono":    cl?.tel || "",
         "Email":       cl?.email || "",
         "Servicio":    m?.nombre || "",
-        "Duración (min)": (m?.min||0) + (c.extraMin||0),
         "Domicilio":   c.domicilio ? "Sí" : "No",
         "Importe (€)": c.monto,
-        "Estado":      c.estado.charAt(0).toUpperCase() + c.estado.slice(1),
+        "Estado":      c.estado==="bono"?"Bono (cobrado)":c.estado.charAt(0).toUpperCase()+c.estado.slice(1),
+        "Tipo":        c.estado==="bono"?"Sesión de bono":"Sesión individual",
       };
     });
     const ws1 = XLSX.utils.json_to_sheet(sesiones);
-    ws1["!cols"] = [10,7,22,16,24,14,14,10,12,12].map(w=>({wch:w}));
+    ws1["!cols"] = [10,7,22,16,24,16,10,12,16,18].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws1, "Sesiones");
 
-    // ── Hoja 2: INGRESOS COBRADOS ──
-    const cobradas = citas.filter(c=>c.estado==="cobrada").sort((a,b)=>a.fecha-b.fecha).map(c => {
+    // ── Hoja 2: INGRESOS COBRADOS (sesiones + bonos) ──
+    const cobradasSes = citas.filter(c=>c.estado==="cobrada").sort((a,b)=>a.fecha-b.fecha).map(c => {
       const cl = gC(c.cid), m = gM(c.mid);
       return {
         "Fecha":           c.fecha.toLocaleDateString("es-ES"),
+        "Tipo":            "Sesión individual",
         "Concepto":        `Sesión de ${m?.nombre||""} — ${cl?.nombre||""}`,
         "Cliente":         cl?.nombre || "",
         "Servicio":        m?.nombre || "",
-        "Domicilio":       c.domicilio ? "Sí (+20€)" : "No",
+        "Forma de pago":   c.tipoPago || "",
         "Base imponible":  c.monto,
-        "IVA (0%)":        0,
         "Total cobrado":   c.monto,
       };
     });
-    const ws2 = XLSX.utils.json_to_sheet(cobradas);
-    ws2["!cols"] = [10,40,20,14,12,14,10,12].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws2, "Ingresos cobrados");
-
-    // ── Hoja 3: RESUMEN POR SERVICIO ──
-    const porServicio = masajes.map(m => {
-      const mCitas = citas.filter(c=>c.mid===m.id);
-      const cobrado = mCitas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+    const cobradasBonos = bonosVendidos.filter(b=>b.cobrado).sort((a,b)=>a.fecha-b.fecha).map(b => {
+      const cl = gC(b.cid), m = gM(b.mid);
       return {
-        "Servicio":          m.nombre,
-        "Precio base (€)":   m.precio,
-        "Extra 30min (€)":   m.extra30||0,
-        "Sesiones totales":  mCitas.length,
-        "Sesiones cobradas": mCitas.filter(c=>c.estado==="cobrada").length,
-        "Sesiones pendientes": mCitas.filter(c=>c.estado==="pendiente").length,
-        "Total facturado (€)": cobrado,
+        "Fecha":           b.fecha.toLocaleDateString("es-ES"),
+        "Tipo":            `Bono ${b.sesiones} sesiones`,
+        "Concepto":        `Bono ${b.sesiones} sesiones de ${m?.nombre||""} — ${cl?.nombre||""}`,
+        "Cliente":         cl?.nombre || "",
+        "Servicio":        m?.nombre || "",
+        "Forma de pago":   "",
+        "Base imponible":  b.precio,
+        "Total cobrado":   b.precio,
       };
     });
-    const ws3 = XLSX.utils.json_to_sheet(porServicio);
-    ws3["!cols"] = [16,14,14,14,16,16,18].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws3, "Por servicio");
+    const todasCobradas = [...cobradasSes, ...cobradasBonos].sort((a,b)=>new Date(a["Fecha"].split("/").reverse().join("-"))-new Date(b["Fecha"].split("/").reverse().join("-")));
+    const totalIngresos = todasCobradas.reduce((s,r)=>s+r["Total cobrado"],0);
+    todasCobradas.push({"Fecha":"","Tipo":"","Concepto":"TOTAL","Cliente":"","Servicio":"","Forma de pago":"","Base imponible":totalIngresos,"Total cobrado":totalIngresos});
+    const ws2 = XLSX.utils.json_to_sheet(todasCobradas);
+    ws2["!cols"] = [10,16,40,20,16,14,14,12].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws2, "Ingresos cobrados");
+
+    // ── Hoja 3: BONOS ──
+    const bonosHoja = bonosVendidos.sort((a,b)=>a.fecha-b.fecha).map(b => {
+      const cl = gC(b.cid), m = gM(b.mid);
+      return {
+        "Fecha venta":      b.fecha.toLocaleDateString("es-ES"),
+        "Cliente":          cl?.nombre || "",
+        "Teléfono":         cl?.tel || "",
+        "Servicio":         m?.nombre || "",
+        "Pack":             `Bono ${b.sesiones} sesiones`,
+        "Sesiones usadas":  b.usadas,
+        "Sesiones restant.":b.sesiones - b.usadas,
+        "Precio bono (€)":  b.precio,
+        "Cobrado":          b.cobrado ? "Sí" : "No",
+      };
+    });
+    bonosHoja.push({
+      "Fecha venta":"","Cliente":"","Teléfono":"","Servicio":"","Pack":"TOTAL",
+      "Sesiones usadas":"","Sesiones restant.":"",
+      "Precio bono (€)":bonosVendidos.filter(b=>b.cobrado).reduce((s,b)=>s+b.precio,0),
+      "Cobrado":"",
+    });
+    const ws3 = XLSX.utils.json_to_sheet(bonosHoja);
+    ws3["!cols"] = [12,22,14,16,18,14,16,14,10].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws3, "Bonos");
 
     // ── Hoja 4: RESUMEN POR CLIENTE ──
     const porCliente = clientes.map(cl => {
       const cCitas = citas.filter(c=>c.cid===cl.id);
-      const cobrado = cCitas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
-      const domicilios = cCitas.filter(c=>c.domicilio).length;
+      const cobSes = cCitas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+      const cobBonos = bonosVendidos.filter(b=>b.cid===cl.id&&b.cobrado).reduce((s,b)=>s+b.precio,0);
       return {
         "Cliente":             cl.nombre,
         "Teléfono":            cl.tel,
         "Email":               cl.email,
         "Sesiones totales":    cCitas.length,
         "Sesiones cobradas":   cCitas.filter(c=>c.estado==="cobrada").length,
-        "Visitas domicilio":   domicilios,
-        "Total facturado (€)": cobrado,
+        "Bonos comprados":     bonosVendidos.filter(b=>b.cid===cl.id).length,
+        "Ingresos sesiones (€)": cobSes,
+        "Ingresos bonos (€)":  cobBonos,
+        "Total (€)":           cobSes + cobBonos,
         "Notas":               cl.notas || "",
       };
     });
     const ws4 = XLSX.utils.json_to_sheet(porCliente);
-    ws4["!cols"] = [22,16,24,14,16,14,16,30].map(w=>({wch:w}));
+    ws4["!cols"] = [22,16,24,14,16,14,18,16,12,30].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws4, "Por cliente");
 
     // ── Hoja 5: RESUMEN ANUAL ──
     const año = new Date().getFullYear();
     const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
     const porMes = meses.map((mes, i) => {
-      const mCitas = citas.filter(c => c.fecha.getMonth()===i && c.fecha.getFullYear()===año);
-      const cobrado = mCitas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+      const mCitas = citas.filter(c=>c.fecha.getMonth()===i&&c.fecha.getFullYear()===año);
+      const mBonos = bonosVendidos.filter(b=>b.cobrado&&b.fecha.getMonth()===i&&b.fecha.getFullYear()===año);
+      const cobSes = mCitas.filter(c=>c.estado==="cobrada").reduce((s,c)=>s+c.monto,0);
+      const cobBonos = mBonos.reduce((s,b)=>s+b.precio,0);
       const pendiente = mCitas.filter(c=>c.estado==="pendiente").reduce((s,c)=>s+c.monto,0);
       return {
-        "Mes":                  mes,
-        "Sesiones":             mCitas.length,
-        "Sesiones cobradas":    mCitas.filter(c=>c.estado==="cobrada").length,
-        "Total cobrado (€)":    cobrado,
-        "Total pendiente (€)":  pendiente,
-        "Total generado (€)":   cobrado + pendiente,
+        "Mes":                    mes,
+        "Sesiones":               mCitas.length,
+        "Sesiones cobradas":      mCitas.filter(c=>c.estado==="cobrada").length,
+        "Ingresos sesiones (€)":  cobSes,
+        "Ingresos bonos (€)":     cobBonos,
+        "Total cobrado (€)":      cobSes + cobBonos,
+        "Total pendiente (€)":    pendiente,
+        "Total generado (€)":     cobSes + cobBonos + pendiente,
       };
     });
-    // Fila total
     porMes.push({
       "Mes": "TOTAL",
       "Sesiones": porMes.reduce((s,r)=>s+r["Sesiones"],0),
       "Sesiones cobradas": porMes.reduce((s,r)=>s+r["Sesiones cobradas"],0),
+      "Ingresos sesiones (€)": porMes.reduce((s,r)=>s+r["Ingresos sesiones (€)"],0),
+      "Ingresos bonos (€)": porMes.reduce((s,r)=>s+r["Ingresos bonos (€)"],0),
       "Total cobrado (€)": porMes.reduce((s,r)=>s+r["Total cobrado (€)"],0),
       "Total pendiente (€)": porMes.reduce((s,r)=>s+r["Total pendiente (€)"],0),
       "Total generado (€)": porMes.reduce((s,r)=>s+r["Total generado (€)"],0),
     });
     const ws5 = XLSX.utils.json_to_sheet(porMes);
-    ws5["!cols"] = [14,10,16,16,16,16].map(w=>({wch:w}));
+    ws5["!cols"] = [14,10,16,18,16,16,16,16].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb, ws5, `Resumen ${año}`);
 
     const fecha = new Date().toLocaleDateString("es-ES").replace(/\//g,"-");
@@ -996,6 +1030,7 @@ function DoshaApp() {
                           <button className="btn btn-o btn-sm" onClick={()=>cancelar(c.id)}><Icon n="x" s={11}/></button>
                         </>}
                         {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="currency-euro" s={11}/>Pago</button>}
+                        {c.estado==="bono"&&<button className="btn btn-o btn-sm" onClick={()=>eliminarCita(c.id)} style={{color:"var(--red)",borderColor:"rgba(184,98,98,.3)"}} title="Eliminar sesión de bono"><Icon n="trash" s={11}/></button>}
                       </div>
                     </div>
                   );
