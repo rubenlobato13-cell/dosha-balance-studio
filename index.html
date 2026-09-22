@@ -235,6 +235,7 @@ function DoshaApp() {
   const [selCl,   setSelCl]  = useState(null);
   const [mModal,  setMModal] = useState(false);
   const [ncModal, setNcModal]= useState(false);
+  const [editCitaId, setEditCitaId] = useState(null);
   const [clModal, setClModal]= useState(false);
   const [editClId, setEditClId] = useState(null);
   const [copied,  setCopied] = useState(false);
@@ -383,11 +384,33 @@ function DoshaApp() {
     const descuento   = parseFloat(ncForm.descuento) || 0;
     const totalAdicionales = (ncForm.adicionales||[]).reduce((s,a)=>s+(parseFloat(a.precio)||0),0);
     const monto = Math.max(0, (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio + totalAdicionales - descuento);
-    const nid = Math.max(...citas.map(c=>c.id))+1;
-    const n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento,adicionales:ncForm.adicionales||[]}];
+    let n;
+    if (editCitaId) {
+      n = citas.map(c => c.id===editCitaId ? {...c, cid:parseInt(ncForm.cid), mid:parseInt(ncForm.mid), fecha, monto, domicilio:ncForm.domicilio, extraPrecio, descuento, adicionales:ncForm.adicionales||[]} : c);
+    } else {
+      const nid = citas.length ? Math.max(...citas.map(c=>c.id))+1 : 1;
+      n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento,adicionales:ncForm.adicionales||[]}];
+    }
     setCitas(n); save("citas", n);
     setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:"",descuento:"",adicionales:[]});
+    setEditCitaId(null);
     setNcModal(false);
+  };
+
+  const abrirEditCita = (c) => {
+    const pad = n => String(n).padStart(2,"0");
+    setNcForm({
+      cid: String(c.cid),
+      mid: String(c.mid),
+      fecha: `${c.fecha.getFullYear()}-${pad(c.fecha.getMonth()+1)}-${pad(c.fecha.getDate())}`,
+      hora:  `${pad(c.fecha.getHours())}:${pad(c.fecha.getMinutes())}`,
+      domicilio: c.domicilio||false,
+      extra: c.extraPrecio||"",
+      descuento: c.descuento||"",
+      adicionales: c.adicionales||[],
+    });
+    setEditCitaId(c.id);
+    setNcModal(true);
   };
 
   const copyLink = () => {
@@ -748,12 +771,13 @@ function DoshaApp() {
                       : `${c.tipoPago==="efectivo"?"💵":c.tipoPago==="bizum"?"📱":"💳"} ${c.tipoPago}`}
                   </span>}
                       <div style={{fontFamily:"var(--fd)",fontSize:"1.05rem",color:"var(--gold)",minWidth:"48px",textAlign:"right"}}>{fmt(c.monto)}</div>
-                      <div style={{display:"flex",gap:"5px",minWidth:"108px",justifyContent:"flex-end"}}>
+                      <div style={{display:"flex",gap:"5px",justifyContent:"flex-end"}}>
+                        <button className="btn btn-o btn-sm" onClick={()=>abrirEditCita(c)} title="Editar cita"><Icon n="pencil" s={11}/></button>
                         {c.estado==="pendiente"&&<>
                           <button className="btn btn-g btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="check" s={11}/>Cobrar</button>
                           <button className="btn btn-o btn-sm" onClick={()=>cancelar(c.id)}><Icon n="x" s={11}/></button>
                         </>}
-                        {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="pencil" s={11}/>Pago</button>}
+                        {c.estado==="cobrada"&&<button className="btn btn-o btn-sm" onClick={()=>abrirCobro(c.id)}><Icon n="currency-euro" s={11}/>Pago</button>}
                       </div>
                     </div>
                   );
@@ -1260,7 +1284,7 @@ function DoshaApp() {
       {ncModal&&(
         <div className="ov" onClick={()=>setNcModal(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div className="modt">Nueva cita</div>
+            <div className="modt">{editCitaId?"✏️ Editar cita":"Nueva cita"}</div>
             <div className="fg">
               <label className="fl">Cliente</label>
               <select className="inp" value={ncForm.cid} onChange={e=>setNcForm(p=>({...p,cid:e.target.value}))}>
@@ -1412,8 +1436,8 @@ function DoshaApp() {
             )}
 
             <div style={{display:"flex",gap:"9px",justifyContent:"flex-end",marginTop:"4px"}}>
-              <button className="btn btn-o" onClick={()=>setNcModal(false)}>Cancelar</button>
-              <button className="btn btn-g" onClick={addCita}>Guardar cita</button>
+              <button className="btn btn-o" onClick={()=>{setNcModal(false);setEditCitaId(null);setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:"",descuento:"",adicionales:[]})}}>Cancelar</button>
+              <button className="btn btn-g" onClick={addCita}>{editCitaId?"Guardar cambios":"Guardar cita"}</button>
             </div>
           </div>
         </div>
