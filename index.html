@@ -239,7 +239,7 @@ function DoshaApp() {
   const [editClId, setEditClId] = useState(null);
   const [copied,  setCopied] = useState(false);
   const [mForm,   setMForm]  = useState({ icon:"✨", nombre:"", min:"", precio:"", desc:"" });
-  const [ncForm,  setNcForm] = useState({ cid:"", mid:"", fecha:"", hora:"", domicilio:false, extra:"", descuento:"" });
+  const [ncForm,  setNcForm] = useState({ cid:"", mid:"", fecha:"", hora:"", domicilio:false, extra:"", descuento:"", adicionales:[] });
   const [clForm,  setClForm] = useState({ nombre:"", tel:"", email:"", fav:"", notas:"" });
 
   const LINK = "https://rubenlobato13-cell.github.io/dosha-balance-studio/reservas.html";
@@ -380,11 +380,12 @@ function DoshaApp() {
     const m = gM(parseInt(ncForm.mid));
     const extraPrecio = parseFloat(ncForm.extra) || 0;
     const descuento   = parseFloat(ncForm.descuento) || 0;
-    const monto = Math.max(0, (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio - descuento);
+    const totalAdicionales = (ncForm.adicionales||[]).reduce((s,a)=>s+(parseFloat(a.precio)||0),0);
+    const monto = Math.max(0, (m?.precio||0) + (ncForm.domicilio ? 20 : 0) + extraPrecio + totalAdicionales - descuento);
     const nid = Math.max(...citas.map(c=>c.id))+1;
-    const n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento}];
+    const n = [...citas,{id:nid,cid:parseInt(ncForm.cid),mid:parseInt(ncForm.mid),fecha,estado:"pendiente",monto,domicilio:ncForm.domicilio,extraPrecio,descuento,adicionales:ncForm.adicionales||[]}];
     setCitas(n); save("citas", n);
-    setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:"",descuento:""});
+    setNcForm({cid:"",mid:"",fecha:"",hora:"",domicilio:false,extra:"",descuento:"",adicionales:[]});
     setNcModal(false);
   };
 
@@ -1363,6 +1364,31 @@ function DoshaApp() {
               </div>
             </div>
 
+            {/* Servicios adicionales */}
+            <div style={{background:"var(--surf)",border:"1px solid var(--b1)",borderRadius:"9px",padding:"13px",marginBottom:"12px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                <div style={{fontSize:".72rem",color:"var(--mut2)",textTransform:"uppercase",letterSpacing:".08em",fontWeight:500}}>✚ Servicios adicionales</div>
+                <button className="btn btn-o btn-sm" onClick={()=>setNcForm(p=>({...p,adicionales:[...(p.adicionales||[]),{nombre:"",precio:""}]}))}>
+                  <Icon n="plus" s={11}/>Añadir
+                </button>
+              </div>
+              {(ncForm.adicionales||[]).length===0
+                ? <div style={{fontSize:".75rem",color:"var(--mut)",fontStyle:"italic",textAlign:"center",padding:"6px 0"}}>Pulsa «Añadir» para incluir servicios extra con nombre y precio libre</div>
+                : (ncForm.adicionales||[]).map((a,i)=>(
+                  <div key={i} style={{display:"flex",gap:"7px",alignItems:"center",marginBottom:"7px"}}>
+                    <input className="inp" placeholder="Nombre del servicio..." value={a.nombre}
+                      onChange={e=>setNcForm(p=>({...p,adicionales:p.adicionales.map((x,idx)=>idx===i?{...x,nombre:e.target.value}:x)}))}
+                      style={{flex:1}}/>
+                    <input type="number" min="0" className="inp" placeholder="0" value={a.precio}
+                      onChange={e=>setNcForm(p=>({...p,adicionales:p.adicionales.map((x,idx)=>idx===i?{...x,precio:e.target.value}:x)}))}
+                      style={{width:"80px",textAlign:"right",fontFamily:"var(--fd)",fontSize:".95rem",color:"var(--gold)"}}/>
+                    <span style={{fontSize:".78rem",color:"var(--mut)",flexShrink:0}}>€</span>
+                    <button className="btn btn-o btn-sm" onClick={()=>setNcForm(p=>({...p,adicionales:p.adicionales.filter((_,idx)=>idx!==i)}))} style={{padding:"5px 7px",flexShrink:0}}><Icon n="x" s={11}/></button>
+                  </div>
+                ))
+              }
+            </div>
+
             {/* Resumen precio */}
             {ncForm.mid&&(
               <div style={{background:"rgba(201,152,56,.08)",border:"1px solid rgba(201,152,56,.2)",borderRadius:"8px",padding:"12px 14px",marginBottom:"13px"}}>
@@ -1371,7 +1397,8 @@ function DoshaApp() {
                   const m=gM(parseInt(ncForm.mid));
                   const extraPrecio=parseFloat(ncForm.extra)||0;
                   const descuento=parseFloat(ncForm.descuento)||0;
-                  const total=Math.max(0,(m?.precio||0)+(ncForm.domicilio?20:0)+extraPrecio-descuento);
+                  const totalAd=(ncForm.adicionales||[]).reduce((s,a)=>s+(parseFloat(a.precio)||0),0);
+                  const total=Math.max(0,(m?.precio||0)+(ncForm.domicilio?20:0)+extraPrecio+totalAd-descuento);
                   return (
                     <div>
                       <div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}>
@@ -1379,6 +1406,9 @@ function DoshaApp() {
                       </div>
                       {ncForm.domicilio&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}><span>Desplazamiento</span><span>+20€</span></div>}
                       {extraPrecio>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}><span>Tiempo extra</span><span>+{fmt(extraPrecio)}</span></div>}
+                      {(ncForm.adicionales||[]).filter(a=>a.nombre&&a.precio>0).map((a,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--mut2)",marginBottom:"4px"}}><span>✚ {a.nombre}</span><span>+{fmt(a.precio)}</span></div>
+                      ))}
                       {descuento>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:".8rem",color:"var(--green)",marginBottom:"4px"}}><span>🏷️ Descuento</span><span>-{fmt(descuento)}</span></div>}
                       <div style={{borderTop:"1px solid rgba(201,152,56,.25)",paddingTop:"8px",marginTop:"4px",display:"flex",justifyContent:"flex-end"}}>
                         <span style={{fontFamily:"var(--fd)",fontSize:"1.3rem",color:"var(--gold)",fontWeight:600}}>{fmt(total)}</span>
